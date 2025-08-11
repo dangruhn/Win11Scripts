@@ -1,0 +1,2 @@
+[HKEY_CLASSES_ROOT\batfile\shell\Open with VS Code\command]
+@="\"C:\\Users\\Dan.Gruhn\\AppData\\Local\\Programs\\Microsoft VS Code\\bin\\code\" \"%s\""
