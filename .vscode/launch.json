@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "PowerShell: Launch handledownload",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "args": [
+                "-TorrentName", "\"Supernatural S01E03 Dead in the Water REPACK2 1080p AMZN WEB-DL DDP2 0 H 264-Kitsune\"",
+                "-Category", "TV",
+                "-ContentPath", "\"E:\\Downloads\\TOR\\Done\\Supernatural S01E03 Dead in the Water REPACK2 1080p AMZN WEB-DL DDP2 0 H 264-Kitsune\"",
+                "-RootPath", "\"E:\\Downloads\\TOR\\Done\\Supernatural S01E03 Dead in the Water REPACK2 1080p AMZN WEB-DL DDP2 0 H 264-Kitsune\"",
+                "-SavePath", "\"E:\\Downloads\\TOR\\Done\"",
+                "-NumberOfFiles", "2",
+                "-TorrentSize", "3201045854",
+                "-TorrentId", "ace45ca88ea79c96d4e46c25713510fdf010b66e"
+            ],
+        }
+    ]
+}
