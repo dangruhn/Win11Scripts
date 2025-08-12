@@ -1,3 +1,27 @@
+#****************************************************************************************************
+#    handledownload.ps1
+#
+#    - Logs the start of the script execution for traceability.
+#    - Supports multiple download handling modes (e.g., TV, Movies, F1 events) via conditional blocks.
+#    - Integrates with FileBot to organize and rename downloaded media files (TV shows, movies, music) 
+#      using custom naming formats.
+#    - Passes metadata (such as torrent name, category, file paths) to FileBot for automated processing.
+#    - Handles both single-file and multi-file (RAR or directory) downloads.
+#    - Provides a dedicated mode for processing F1 event downloads with custom logic.
+#    - Implements a global mutex (PlexDownloadQueue) to prevent concurrent script executions, ensuring 
+#      only one instance processes downloads at a time.
+#    - Uses structured logging for monitoring and debugging.
+#    - Designed for extensibility and safe concurrent operation in automated media workflows.
+#****************************************************************************************************
+#   Modification Log:
+#   2025-08-09  dgruhn
+#   : Start mod log.
+#   : Add displayed progress bar for F1 uploading.
+#   : Made plans for same for other media files.
+#   : Fixed CopyF1File function.
+#   : Modified LogOutput to optionally take a log file path.
+# 
+#****************************************************************************************************
 [CmdletBinding()]
 param(
     [Parameter()]
@@ -456,11 +480,158 @@ Function Get-SuccessivePathLeaves
 }
 
 
+
 #********************************************************************************
-# Copy file
+# Copy a file with a progress bar
 #********************************************************************************
 
-Function Copy-F1File
+Add-Type -AssemblyName PresentationFramework
+
+function Copy-WithProgress {
+    param (
+        [string]$SourcePath,
+        [string]$DestinationPath
+    )
+
+    $window = New-Object Windows.Window
+    $window.Title = "Path Confirmation"
+    $window.Width = 960
+    $window.Height = 300 
+    $window.WindowStartupLocation = 'CenterScreen'
+
+    $stackPanel = New-Object Windows.Controls.StackPanel
+    $stackPanel.Margin = '10'
+
+    # Source Path Box
+    $srcBox = New-Object Windows.Controls.TextBox
+    $srcBox.Text = "Source: $SourcePath"
+    $srcBox.IsReadOnly = $true
+    $srcBox.Width = 920
+    $srcBox.Height = 30
+    $srcBox.Padding = '6,2,6,2'
+    $srcBox.TextWrapping = 'NoWrap'
+    $srcBox.HorizontalScrollBarVisibility = 'Hidden'
+    $srcBox.VerticalScrollBarVisibility = 'Hidden'
+    $srcBox.Margin = '0,0,0,8'
+    $srcBox.ToolTip = $SourcePath
+    $srcBox.FontFamily = 'Consolas'
+
+    # Destination Path Box
+    $destBox = New-Object Windows.Controls.TextBox
+    $destBox.Text = "Destination: $DestinationPath"
+    $destBox.IsReadOnly = $true
+    $destBox.Width = 920
+    $destBox.Height = 30
+    $destBox.Padding = '6,2,6,2'
+    $destBox.TextWrapping = 'NoWrap'
+    $destBox.HorizontalScrollBarVisibility = 'Hidden'
+    $destBox.VerticalScrollBarVisibility = 'Hidden'
+    $destBox.Margin = '0,0,0,8'
+    $destBox.ToolTip = $DestinationPath
+    $destBox.FontFamily = 'Consolas'
+
+    # File Size Label
+    $sizeLabel = New-Object Windows.Controls.TextBlock
+    $sizeLabel.Text = "File Size: Calculating..."
+    $sizeLabel.Margin = '0,0,0,6'
+
+    # Progress Bar
+    $progressBar = New-Object Windows.Controls.ProgressBar
+    $progressBar.Minimum = 0
+    $progressBar.Height = 20
+    $progressBar.Width = 480
+    $progressBar.Margin = '0,0,0,6'
+
+    # Percent Complete Label
+    $percentLabel = New-Object Windows.Controls.TextBlock
+    $percentLabel.Text = "Progress: 0%"
+    $percentLabel.Margin = '0,0,0,6'
+
+    # Time Remaining Label
+    $timeLabel = New-Object Windows.Controls.TextBlock
+    $timeLabel.Text = "Time Remaining: Calculating..."
+    $timeLabel.Margin = '0,0,0,10'
+
+    # Cancel Button
+    $cancelButton = New-Object Windows.Controls.Button
+    $cancelButton.Content = "Cancel"
+    $cancelButton.Width = 80
+    $cancelButton.Margin = '0,0,0,0'
+    $cancelled = $false
+    $cancelButton.Add_Click({ $cancelled = $true })
+
+    # Add controls to panel
+    $stackPanel.Children.Add($srcBox)
+    $stackPanel.Children.Add($destBox)
+    $stackPanel.Children.Add($sizeLabel)
+    $stackPanel.Children.Add($progressBar)
+    $stackPanel.Children.Add($percentLabel)
+    $stackPanel.Children.Add($timeLabel)
+    $stackPanel.Children.Add($cancelButton)
+
+    $window.Content = $stackPanel
+    $window.Show()
+
+    # Start copy
+    $sourceStream = [System.IO.File]::OpenRead($SourcePath)
+    $destStream = [System.IO.File]::Create($DestinationPath)
+
+    $buffer = New-Object byte[] (1MB)
+    $totalBytes = $sourceStream.Length
+    $progressBar.Maximum = $totalBytes
+    $bytesCopied = 0
+    $startTime = Get-Date
+
+    # Format file size
+    $sizeMB = [math]::Round($totalBytes / 1MB, 2)
+    $sizeGB = [math]::Round($totalBytes / 1GB, 2)
+    $sizeLabel.Text = if ($sizeGB -ge 1) {
+        "File Size: $sizeGB GB"
+    } else {
+        "File Size: $sizeMB MB"
+    }
+
+    while (($read = $sourceStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+        if ($cancelled) {
+            $sourceStream.Close()
+            $destStream.Close()
+            Remove-Item $DestinationPath -ErrorAction SilentlyContinue
+            $window.Close()
+            Write-Host "Copy cancelled."
+            return
+        }
+
+        $destStream.Write($buffer, 0, $read)
+        $bytesCopied += $read
+        $progressBar.Value = $bytesCopied
+
+        # Percent complete
+        $percent = [math]::Round(($bytesCopied / $totalBytes) * 100, 1)
+        $percentLabel.Text = "Progress: $percent%"
+
+        # Estimate time remaining
+        $elapsed = (Get-Date) - $startTime
+        if ($bytesCopied -gt 0 -and $elapsed.TotalSeconds -gt 0) {
+            $rate = $bytesCopied / $elapsed.TotalSeconds
+            $remainingBytes = $totalBytes - $bytesCopied
+            $remainingSeconds = [math]::Ceiling($remainingBytes / $rate)
+            $timeLabel.Text = "Time Remaining: $remainingSeconds seconds"
+        }
+
+        [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    }
+
+    $sourceStream.Close()
+    $destStream.Close()
+    $window.Close()
+    Write-Host "Copy completed successfully."
+}
+
+#********************************************************************************
+# Copy and F1 file to the proper location based on 
+#********************************************************************************
+
+Function CopyF1File
 {
     $SrcPath = $args[0]
     $EventInfo = $args[1]
@@ -474,22 +645,64 @@ Function Copy-F1File
         $dstName = $baseName
     }
 
+
     $DestDirPath = "$F1DestRoot", $DestDir -join "\"
+    $DestPath = "$DestDirPath", "$dstName" -join "\"
 
     # Make sure the destination directory exists
     if (!(Test-Path -Path $DestDirPath -PathType Container))
     {
         LogOutput "mkdir $DestDirPath"
+        New-Item -Path "$DestDirPath" -ItemType Directory -Force  | Out-Null
     }
     # If the destination file doesn't exist or isn't the correct size
     if ((!(Test-Path -Path $DestPath)) -or ((Get-Item -Path $SrcPath).Length -ne (Get-Item -Path $DestPath).Length))
     {
-        $displayName = ("Uploading", $EventInfo.RaceDate, $EventInfo.CircuitName, $EventInfo.EventName) -join " "
-        Start-BitsTransfer -Source $SrcPath -Destination $DestPath -Priority High -DisplayName $displayName -Description "$SrcPath to  $DestPath"
+        Copy-WithProgress -SourcePath $SrcPath -DestinationPath $DestPath
+        #Start-BitsTransfer -Source  -Destination $DestPath -Priority High -DisplayName $displayName -Description "$SrcPath to $DestPath"
 
         LogOutput "Remove read-only from $DestPath"
         attrib -r "$DestPath"
     }
+}
+
+#********************************************************************************
+#********************************************************************************
+function Organize-MediaFile {
+    param (
+        [Parameter(Mandatory)]
+        [string]$SourceFile,
+
+        [Parameter(Mandatory)]
+        [string]$Format = "D:/Media/{plex}",
+
+        [Parameter()]
+        [string]$Language = "en"
+    )
+
+    # Step 1: Get destination path using FileBot dry-run
+    Write-Host "Resolving destination path via FileBot..." -ForegroundColor Cyan
+    $filebotOutput = & filebot -rename $SourceFile --db TheMovieDB --format $Format --action test
+    if ($filebotOutput -match 'to \[(.*?)\]') {
+        $DestinationFile = $matches[1]
+        $DestinationFolder = Split-Path $DestinationFile
+        Write-Host "Resolved destination: $DestinationFile" -ForegroundColor Green
+    } else {
+        Write-Warning "Failed to resolve destination path."
+        return
+    }
+
+    # Step 2: Copy file using Copy-WithProgress
+    Write-Host "Copying file to destination..." -ForegroundColor Cyan
+    Copy-WithProgress -Source $SourceFile -Destination $DestinationFile
+
+    # Step 3: Fetch artwork using FileBot
+    Write-Host "Fetching artwork into: $DestinationFolder" -ForegroundColor Cyan
+    Push-Location $DestinationFolder
+    & filebot -script fn:artwork.tmdb *
+    Pop-Location
+
+    Write-Host "✅ Media file organized successfully." -ForegroundColor Green
 }
 
 
@@ -528,7 +741,7 @@ Function Invoke-FileProcessing
                 }
                 else
                 {
-                    Copy-F1File "$SrcPathname" $eventInfo "mkv"
+                    CopyF1File "$SrcPathname" $eventInfo "mkv"
                 }
             }
             "*.rar" {
@@ -569,7 +782,7 @@ Function Invoke-FileProcessing
                 }
                 else
                 {
-                    Copy-F1File "$SrcPathname" $eventInfo "mp4"
+                    CopyF1File "$SrcPathname" $eventInfo "mp4"
                 }
             }
         }
@@ -732,16 +945,23 @@ Function Get-EventInfoF1
 #******************************************************************************
 
 function LogOutput {
+    [CmdletBinding()]
     param (
-        [string]$LogFile,
-        [string]$Color = "White",              # Optional Write-Host color
-        [string]$Prefix = "",                  # Optional line prefix
-        [Parameter(ValueFromRemainingArguments = $true)]
-        $Args
+        [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
+        $Args,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Color,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Prefix,
+
+        [Parameter(Mandatory = $false)]
+        [string]$LogFile
     )
 
-    # Fallback to global log file if no log file given
-    if (-not $LogFile -and $global:logFile) {
+    # Only use global log file if -LogFile was NOT passed explicitly
+    if (-not $PSBoundParameters.ContainsKey('LogFile') -and $global:logFile) {
         $LogFile = $global:logFile
     }
 
@@ -931,7 +1151,8 @@ if ($False)
 elseif ($False)
 {
    Import-F1Information
-   $SavePath = "F:\Downloads\TOR\Done\Formula1.2025.Round05.Saudi.Arabia.FP1.F1TV.WEB-DL.2160p.HLG.H265.Multi-MWR"
+   $SavePath = "E:\Downloads\TOR\Done\09.F1.2024.R14.Belgian.Grand.Prix.Teds.Notebook.SkyF1HD.1080P.mkv"
+
    $ContentPath = $SavePath
    Invoke-FileProcessing  $SavePath $ContentPath
    exit 0
