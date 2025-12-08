@@ -35,11 +35,84 @@ param(
     [long]$TorrentSize,	    # %Z: Torrent size (bytes)
     [String]$TorrentId	    # %K: Torrent ID (either sha-1 or truncated sha-256 info)
 )
-# Script wide variables
+
+
+# Load Windows Forms and Drawing assemblies
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName PresentationFramework
 
 # Logging directory
 $qBittorrentLogsDir = "$env:USERPROFILE\logs"
 $global:logFile = "$qBittorrentLogsDir\handledownload.log"
+
+
+#******************************************************************************
+# Log the input parameters to the log file with a timestamp
+#******************************************************************************
+function LogOutput {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
+        $Args,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Color,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Prefix,
+
+        [Parameter(Mandatory = $false)]
+        [string]$LogFile
+    )
+
+    # Only use global log file if -LogFile was NOT passed explicitly
+    if (-not $PSBoundParameters.ContainsKey('LogFile') -and $global:logFile)
+    {
+        $LogFile = $global:logFile
+    }
+
+    foreach ($Arg in $Args)
+    {
+        # Split into lines if it's a string with newlines
+        $lines = if ($Arg -is [string]) { $Arg -split "`r?`n" } else { @("$Arg") }
+
+        foreach ($line in $lines)
+        {
+            $Date = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            $PrefixText = if ($Prefix) { "$Prefix " } else { "" }
+            $LogLine = "$Date $PID $PrefixText$line"
+
+            try {
+                Write-Host $LogLine -ForegroundColor $Color
+            } catch {
+                Write-Host $LogLine  # Fallback if color is invalid
+            }
+
+            if ($LogFile)
+            {
+                try {
+                    Add-Content -Path $LogFile -Value $LogLine
+                } catch {
+                    Write-Warning "Failed to write to log file: $LogFile"
+                }
+            }
+        }
+    }
+}
+
+# Script wide variables
+LogOutput "TorrentName: $TorrentName" `
+            "Category: $Category" `
+            "ContentPath: $ContentPath" `
+            "RootPath: $RootPath" `
+            "SavePath: $SavePath" `
+            "NumberOfFiles: $NumberOfFiles" `
+            "TorrentSize: $TorrentSize" `
+            "TorrentId: $TorrentId" `
+            "TorrentSize: $TorrentSize"
+
+$global:VideoName = ""
 
 # Development directory
 $DevelopmentDir = "C:\Users\Dan.Gruhn\Dropbox\dgruhn-home\Documents\Development"
@@ -460,7 +533,6 @@ Function New-TemporaryFolder
 #********************************************************************************
 # Get successively longer leaves in the given path
 #********************************************************************************
-
 Function Get-SuccessivePathLeaves
 {
     $pathname = $args[0]
@@ -478,15 +550,59 @@ Function Get-SuccessivePathLeaves
     return $result
 
 }
+#********************************************************************************
+# Convert a byte count into a human-readable string with appropriate units.
+#********************************************************************************
+function Format-ByteSize {
+    param (
+        [Parameter(Mandatory = $true)] [double] $Bytes,
+        [Int16]                                 $DecimalPlaces = 2
+    )
 
+    $units = @(
+        @{ Label = "TB"; Factor = 1TB },
+        @{ Label = "GB"; Factor = 1GB },
+        @{ Label = "MB"; Factor = 1MB },
+        @{ Label = "KB"; Factor = 1KB },
+        @{ Label = "bytes"; Factor = 1 }
+    )
 
+    foreach ($unit in $units) {
+        if ($Bytes -ge $unit.Factor) {
+            $rounded = [math]::Round($Bytes / $unit.Factor, $DecimalPlaces)
+            $formatted = "{0:F$DecimalPlaces}" -f $rounded
+            return "$formatted $($unit.Label)"
+        }
+    }
 
+    return "$Bytes bytes"
+}
+
+#********************************************************************************
+# Convert seconds to HH:MM:SS format
+# Only shows hours if there are hours, only shows minutes if there are minutes
+#********************************************************************************
+function Convert-SecondsToHHMMSS {
+    param (
+        [Parameter(Mandatory = $true)]
+        [int]$TotalSeconds
+    )
+
+    $hours   = [int][math]::Floor($TotalSeconds / 3600)
+    $minutes = [int][math]::Floor(($TotalSeconds % 3600) / 60)
+    $seconds = $TotalSeconds % 60
+
+    if ($hours -gt 0) {
+        return "{0:D}:{1:D2}:{2:D2}" -f $hours, $minutes, $seconds
+    } elseif ($minutes -gt 0) {
+        return "{0:D}:{1:D2}" -f $minutes, $seconds
+    } else {
+        return "{0:D} secs" -f $seconds
+    }
+}
 #********************************************************************************
 # Copy a file with a progress bar
 #********************************************************************************
-
-Add-Type -AssemblyName PresentationFramework
-
 function Copy-WithProgress {
     param (
         [string]$SourcePath,
@@ -498,37 +614,33 @@ function Copy-WithProgress {
     $window.Width = 960
     $window.Height = 300 
     $window.WindowStartupLocation = 'CenterScreen'
+    $window.Topmost = $true
+
 
     $stackPanel = New-Object Windows.Controls.StackPanel
     $stackPanel.Margin = '10'
 
-    # Source Path Box
-    $srcBox = New-Object Windows.Controls.TextBox
-    $srcBox.Text = "Source: $SourcePath"
-    $srcBox.IsReadOnly = $true
-    $srcBox.Width = 920
-    $srcBox.Height = 30
-    $srcBox.Padding = '6,2,6,2'
-    $srcBox.TextWrapping = 'NoWrap'
-    $srcBox.HorizontalScrollBarVisibility = 'Hidden'
-    $srcBox.VerticalScrollBarVisibility = 'Hidden'
-    $srcBox.Margin = '0,0,0,8'
-    $srcBox.ToolTip = $SourcePath
-    $srcBox.FontFamily = 'Consolas'
+    # Source Path TextBlock
+    $srcText = New-Object Windows.Controls.TextBlock
+    $srcText.Text = "Source: $SourcePath"
+    $srcText.Width = 920
+    $srcText.Height = 30
+    $srcText.Padding = '6,2,6,2'
+    $srcText.TextWrapping = 'NoWrap'
+    $srcText.Margin = '0,0,0,8'
+    $srcText.ToolTip = $SourcePath
+    $srcText.FontFamily = 'Consolas'
 
-    # Destination Path Box
-    $destBox = New-Object Windows.Controls.TextBox
-    $destBox.Text = "Destination: $DestinationPath"
-    $destBox.IsReadOnly = $true
-    $destBox.Width = 920
-    $destBox.Height = 30
-    $destBox.Padding = '6,2,6,2'
-    $destBox.TextWrapping = 'NoWrap'
-    $destBox.HorizontalScrollBarVisibility = 'Hidden'
-    $destBox.VerticalScrollBarVisibility = 'Hidden'
-    $destBox.Margin = '0,0,0,8'
-    $destBox.ToolTip = $DestinationPath
-    $destBox.FontFamily = 'Consolas'
+    # Destination Path TextBlock
+    $destText = New-Object Windows.Controls.TextBlock
+    $destText.Text = "Destination: $DestinationPath"
+    $destText.Width = 920
+    $destText.Height = 30
+    $destText.Padding = '6,2,6,2'
+    $destText.TextWrapping = 'NoWrap'
+    $destText.Margin = '0,0,0,8'
+    $destText.ToolTip = $DestinationPath
+    $destText.FontFamily = 'Consolas'
 
     # File Size Label
     $sizeLabel = New-Object Windows.Controls.TextBlock
@@ -561,35 +673,36 @@ function Copy-WithProgress {
     $cancelButton.Add_Click({ $cancelled = $true })
 
     # Add controls to panel
-    $stackPanel.Children.Add($srcBox)
-    $stackPanel.Children.Add($destBox)
-    $stackPanel.Children.Add($sizeLabel)
-    $stackPanel.Children.Add($progressBar)
-    $stackPanel.Children.Add($percentLabel)
-    $stackPanel.Children.Add($timeLabel)
-    $stackPanel.Children.Add($cancelButton)
+    [void]$stackPanel.Children.Add($srcText)
+    [void]$stackPanel.Children.Add($destText)
+    [void]$stackPanel.Children.Add($sizeLabel)
+    [void]$stackPanel.Children.Add($progressBar)
+    [void]$stackPanel.Children.Add($percentLabel)
+    [void]$stackPanel.Children.Add($timeLabel)
+    [void]$stackPanel.Children.Add($cancelButton)
 
     $window.Content = $stackPanel
     $window.Show()
+
+    # Ensure focus and topmost behavior
+    $null = $window.Dispatcher.BeginInvoke([Action]{
+        $window.Activate()
+        $window.Focus()
+    })
 
     # Start copy
     $sourceStream = [System.IO.File]::OpenRead($SourcePath)
     $destStream = [System.IO.File]::Create($DestinationPath)
 
-    $buffer = New-Object byte[] (1MB)
+    $buffer = New-Object byte[] (2MB)
     $totalBytes = $sourceStream.Length
     $progressBar.Maximum = $totalBytes
     $bytesCopied = 0
     $startTime = Get-Date
 
     # Format file size
-    $sizeMB = [math]::Round($totalBytes / 1MB, 2)
-    $sizeGB = [math]::Round($totalBytes / 1GB, 2)
-    $sizeLabel.Text = if ($sizeGB -ge 1) {
-        "File Size: $sizeGB GB"
-    } else {
-        "File Size: $sizeMB MB"
-    }
+    $sizeText = Format-ByteSize $totalBytes 1
+    $sizeLabel.Text = "File Size: $sizeText"
 
     while (($read = $sourceStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
         if ($cancelled) {
@@ -606,18 +719,22 @@ function Copy-WithProgress {
         $progressBar.Value = $bytesCopied
 
         # Percent complete
-        $percent = [math]::Round(($bytesCopied / $totalBytes) * 100, 1)
+        $percent = [math]::Round(($bytesCopied / $totalBytes) * 100, 0)
         $percentLabel.Text = "Progress: $percent%"
 
         # Estimate time remaining
         $elapsed = (Get-Date) - $startTime
         if ($bytesCopied -gt 0 -and $elapsed.TotalSeconds -gt 0) {
             $rate = $bytesCopied / $elapsed.TotalSeconds
-            $remainingBytes = $totalBytes - $bytesCopied
-            $remainingSeconds = [math]::Ceiling($remainingBytes / $rate)
-            $timeLabel.Text = "Time Remaining: $remainingSeconds seconds"
+            if ($rate -gt 0) {
+                $rateValue = Format-ByteSize $rate 1
+                $rateLabel = $rateValue + "/sec"
+                $remainingBytes = Format-ByteSize ($totalBytes - $bytesCopied) 1
+                $remainingTime = Convert-SecondsToHHMMSS ([math]::Ceiling(($totalBytes - $bytesCopied) / $rate))
+                $timeLabel.Text = "Remaining: $remainingTime, $remainingBytes ($rateLabel)"
+            }
         }
-
+        # Allow UI to update
         [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
     }
 
@@ -626,6 +743,85 @@ function Copy-WithProgress {
     $window.Close()
     Write-Host "Copy completed successfully."
 }
+
+function Copy-WithPathCheck {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SourcePath,
+
+        [Parameter(Mandatory=$true)]
+        [string]$DestinationPath
+    )
+
+    try {
+        # Ensure the source exists
+        if (-not (Test-Path $SourcePath)) {
+            throw "Source path does not exist: $SourcePath"
+        }
+
+        # Get the parent directory of the destination
+        $destDir = Split-Path $DestinationPath -Parent
+
+        # Ensure the destination directory exists, or try to create it
+        if (-not (Test-Path $destDir)) {
+            try {
+                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+            }
+            catch {
+                throw "Failed to create destination directory: $destDir. Error: $_"
+            }
+        }
+
+        # Perform the copy
+        # Copy-Item -Path $SourcePath -Destination $DestinationPath -Force
+        Copy-WithProgress -SourcePath $SourcePath -DestinationPath $DestinationPath
+
+        Write-Host "Copied $SourcePath → $DestinationPath successfully."
+    }
+    catch {
+        Write-Host "Copy failed. Error: $_"
+    }
+}
+
+function Extract-RarWith7Zip {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RarFile,
+
+        [Parameter(Mandatory=$true)]
+        [string]$OutputDir
+    )
+
+    # Candidate paths for 7z.exe
+    $paths = @(
+        (Join-Path $env:ProgramFiles "7-Zip\7z.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe")
+    )
+
+    # Find the first valid path
+    $sevenZipPath = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+    if (-not $sevenZipPath)
+    {
+        throw "7z.exe not found in Program Files or Program Files (x86). Please verify 7-Zip is installed."
+    }
+
+    # Ensure output directory exists
+    if (-not (Test-Path $OutputDir))
+    {
+        New-Item -ItemType Directory -Path $OutputDir | Out-Null
+    }
+
+    # Run 7-Zip extraction
+    $errorOut = & $sevenZipPath x $RarFile "-o$OutputDir" -y 1> $null 2>&1
+    $exitCode = $LASTEXITCODE
+    
+    # Add any error output to the log
+    LogOutput "$errorOut"
+
+    return $exitCode
+}
+
 
 #********************************************************************************
 # Copy and F1 file to the proper location based on 
@@ -649,6 +845,9 @@ Function CopyF1File
     $DestDirPath = "$F1DestRoot", $DestDir -join "\"
     $DestPath = "$DestDirPath", "$dstName" -join "\"
 
+    # Get the video name for the final completion dialog box
+    $global:VideoName = Split-Path $DestPath -Leaf
+
     # Make sure the destination directory exists
     if (!(Test-Path -Path $DestDirPath -PathType Container))
     {
@@ -665,46 +864,6 @@ Function CopyF1File
         attrib -r "$DestPath"
     }
 }
-
-#********************************************************************************
-#********************************************************************************
-function Organize-MediaFile {
-    param (
-        [Parameter(Mandatory)]
-        [string]$SourceFile,
-
-        [Parameter(Mandatory)]
-        [string]$Format = "D:/Media/{plex}",
-
-        [Parameter()]
-        [string]$Language = "en"
-    )
-
-    # Step 1: Get destination path using FileBot dry-run
-    Write-Host "Resolving destination path via FileBot..." -ForegroundColor Cyan
-    $filebotOutput = & filebot -rename $SourceFile --db TheMovieDB --format $Format --action test
-    if ($filebotOutput -match 'to \[(.*?)\]') {
-        $DestinationFile = $matches[1]
-        $DestinationFolder = Split-Path $DestinationFile
-        Write-Host "Resolved destination: $DestinationFile" -ForegroundColor Green
-    } else {
-        Write-Warning "Failed to resolve destination path."
-        return
-    }
-
-    # Step 2: Copy file using Copy-WithProgress
-    Write-Host "Copying file to destination..." -ForegroundColor Cyan
-    Copy-WithProgress -Source $SourceFile -Destination $DestinationFile
-
-    # Step 3: Fetch artwork using FileBot
-    Write-Host "Fetching artwork into: $DestinationFolder" -ForegroundColor Cyan
-    Push-Location $DestinationFolder
-    & filebot -script fn:artwork.tmdb *
-    Pop-Location
-
-    Write-Host "✅ Media file organized successfully." -ForegroundColor Green
-}
-
 
 #********************************************************************************
 # Process a file
@@ -790,17 +949,50 @@ Function Invoke-FileProcessing
 }
 
 
-#********************************************************************************
-# Get the information about an F1 event
-#********************************************************************************
+#***************************************************************************************************
+<#
+.SYNOPSIS
+    Extracts Formula 1 event information from a video file path and folder structure.
 
+.DESCRIPTION
+    This function analyzes file and folder names to identify Formula 1 race details including year,
+    circuit, event type, and video specifications. It uses cached data for performance and 
+    cross-references circuit information with F1 race data to determine race dates and rounds.
+
+.PARAMETER args[0]
+    The source folder path containing the video file.
+
+.PARAMETER args[1]
+    The full pathname of the source video file.
+
+.OUTPUTS
+    PSCustomObject
+    Returns an object with the following properties:
+    - RaceDate: The race date in yyyy-MM-dd format
+    - CircuitName: The name of the F1 circuit
+    - CircuitId: The unique identifier for the circuit
+    - EventName: The type of F1 event (practice, qualifying, race, etc.)
+    - ResolutionBits: Video resolution and bit depth (e.g., "1080p - 8b")
+    - Round: The round number of the race in the season
+
+.NOTES
+    - Uses a static cache ($script:ResolutionBitsCache) to store video resolution/bitdepth results
+    - Requires external dependencies: filebot for media info, $formula1Circuits, $script:F1Circuits,
+      $script:F1Races, $eventTypes
+    - Falls back to current year if no year is found in the path
+    - Falls back to "1080p - 8b" if video specs cannot be determined
+    - Returns placeholder values if circuit/race cannot be identified
+
+#>
+#***************************************************************************************************
 Function Get-EventInfoF1
 {
     $SrcFolder = $args[0]
     $SrcPathname = $args[1]
 
     # Static hashtable for caching resolution/bitdepth results
-    if (-not $script:ResolutionBitsCache) {
+    if (-not $script:ResolutionBitsCache)
+    {
         $script:ResolutionBitsCache = @{}
     }
 
@@ -827,9 +1019,12 @@ Function Get-EventInfoF1
     }
 
     # Get resolution and bit depth from the video file, using cache if available
-    if ($script:ResolutionBitsCache.ContainsKey($SrcPathname)) {
+    if ($script:ResolutionBitsCache.ContainsKey($SrcPathname))
+    {
         $resolutionBits = $script:ResolutionBitsCache[$SrcPathname]
-    } else {
+    }
+    else
+    {
         $resolutionBits = &filebot -mediainfo -r "$SrcPathname" --format "{height}p - {bitdepth}b" 2>$null
         $script:ResolutionBitsCache[$SrcPathname] = $resolutionBits
     }
@@ -941,58 +1136,6 @@ Function Get-EventInfoF1
 
 
 #******************************************************************************
-# Log the input parameters to the log file with a timestamp
-#******************************************************************************
-
-function LogOutput {
-    [CmdletBinding()]
-    param (
-        [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
-        $Args,
-
-        [Parameter(Mandatory = $false)]
-        [string]$Color,
-
-        [Parameter(Mandatory = $false)]
-        [string]$Prefix,
-
-        [Parameter(Mandatory = $false)]
-        [string]$LogFile
-    )
-
-    # Only use global log file if -LogFile was NOT passed explicitly
-    if (-not $PSBoundParameters.ContainsKey('LogFile') -and $global:logFile) {
-        $LogFile = $global:logFile
-    }
-
-    foreach ($Arg in $Args) {
-        # Split into lines if it's a string with newlines
-        $lines = if ($Arg -is [string]) { $Arg -split "`r?`n" } else { @("$Arg") }
-
-        foreach ($line in $lines) {
-            $Date = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            $PrefixText = if ($Prefix) { "$Prefix " } else { "" }
-            $LogLine = "$Date $PID $PrefixText$line"
-
-            try {
-                Write-Host $LogLine -ForegroundColor $Color
-            } catch {
-                Write-Host $LogLine  # Fallback if color is invalid
-            }
-
-            if ($LogFile) {
-                try {
-                    Add-Content -Path $LogFile -Value $LogLine
-                } catch {
-                    Write-Warning "Failed to write to log file: $LogFile"
-                }
-            }
-        }
-    }
-}
-
-
-#******************************************************************************
 # Determine if the given string is an F1 race event designation
 #******************************************************************************
 
@@ -1008,37 +1151,15 @@ Function IsF1()
             ($testStr -imatch "^f1\."         )
           );
 }
-
-
-#******************************************************************************
-# Invoke the filebot process
-#******************************************************************************
-
-function Invoke-FileBot {
+function Invoke-MovieTvFileProcessing {
     [CmdletBinding()]
     param (
         [string]$TorrentName,
         [ValidateSet("TV", "Movie")] [string]$Category,
-        [string]$ContentPath,
-        [string]$RootPath,
-        [string]$SavePath,
-        [int]$NumberOfFiles,
-        [long]$TorrentSize,
-        [string]$TorrentId,
-        [switch]$DryRun
+        [string]$ContentPath
     )
-    $ExePath = '"C:\Program Files\FileBot\filebot.launcher.exe"'  # quoted
-    $FilebotLogPath = 'C:\Users\Dan.Gruhn\logs\filebot.log'
 
-    # Precompute conditional values
-    $dbSource = if ($Category -eq 'TV') { 'TheTVDB' } else { 'TheMovieDB' }
-    $actionType = if ($DryRun) { 'test' } else { 'copy' }
-
-    # Ensure the log directory exists
-    $LogDir = Split-Path -Path $FilebotLogPath -Parent
-    if (-not (Test-Path -Path $LogDir)) {
-        New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
-    }
+    $ExePath = "C:\Program Files\FileBot\filebot.exe"
 
     # Format strings
     $SeriesFormat = @"
@@ -1048,111 +1169,148 @@ TV Shows/{n}/{episode.special ? 'Specials' : 'Season '+s.pad(2)}/{n} - {episode.
     $MovieFormat = @"
 MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b
 "@
+    $OutputRoot =  "M:/Video"
+    #$OutputRoot =  "C:/Users/Dan.Gruhn/tmp"
 
+    # Run FileBot AMC script in test mode and capture output so we know how to handle files
+    # NOTE: We add -tmp to the formats to allow actual renaming when we get the artwork
+    LogOutput "Getting files to process from '$ContentPath'"
+    $output = `
+        & "$ExePath" -script fn:amc `
+            -non-strict `
+            -rename `
+            "$ContentPath" `
+            --output "$OutputRoot" `
+            --action test `
+            --def seriesFormat="${SeriesFormat}-tmp" `
+            --def movieFormat="$MovieFormat-tmp" 2>&1
 
-    $argList = @(
-        "-script fn:amc",
-        "--output M:/Video",
-        "--conflict auto",
-        "-non-strict",
-        "--action $actionType",
-        "--def seriesFormat=`"$SeriesFormat`"",
-        "--def movieFormat=`"$MovieFormat`"",
-        "--def reportError=y",
-        "--def myepisodes=dangruhn:Mess#1024iah",
-        "--def music=y",
-        "--def artwork=y",
-        "--def ut_label=",
-        "--def ut_state=5",
-        "--def ut_title=`"$TorrentName`"",
-        "--def ut_kind=`"$Category`"",
-        "--def ut_file=`"$ContentPath`"",
-        "--def ut_dir=`"$SavePath`"",
-        "--def clean=y",
-        "--def minFileSize=0",
-        "--def minLengthMS=0"
-    )
-    $wrappedCmd = "$ExePath $argList >> $FilebotLogPath 2>&1"
+    # LogOutput "$output"
 
-    if ($DryRun) {
-        LogOutput "Dry run: $wrappedCmd"
-        return
-    }
-    
-    LogOutput "Filebot command: $wrappedCmd"
-    # Timestamped log entry
-    LogOutput -LogFile $FilebotLogPath ""
-    LogOutput -LogFile $FilebotLogPath "Starting FileBot..."
-    LogOutput -LogFile $FilebotLogPath "$wrappedCmd"
+    # Filter archive extraction lines
+    $extractions = $output | Where-Object { $_ -match '^Read archive' }
 
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $ExePath
-    $psi.Arguments = $argList -join ' '
-    $psi.UseShellExecute = $false
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError  = $true
-    $psi.CreateNoWindow = $true
+    # Filter copy/rename lines
+    $copies = $output | Where-Object { $_ -match '^\[TEST\] from' }
 
-    $proc = New-Object System.Diagnostics.Process
-    $proc.StartInfo = $psi
-    $proc.Start() | Out-Null
-
-    # Capture output
-    $stdout = $proc.StandardOutput.ReadToEnd()
-    $stderr = $proc.StandardError.ReadToEnd()
-    # $proc.WaitForExit()
-
-    # Access exit code
-    $exitCode = $proc.ExitCode
-
-    # Log or display
-    LogOutput -LogFile $FilebotLogPath -Color "Green" -Prefix "[Output] " $stdout
-    if ($stderr) {
-        LogOutput -LogFile $FilebotLogPath -Color "Red" -Prefix "[Error] " $stderr
-    }
-    LogOutput -LogFile $FilebotLogPath "Exit Code: $exitCode`nFileBot completed."
-
-    if ($proc.ExitCode -ne 0) {
-        LogOutput  "FileBot exited with code $($proc.ExitCode). Check $FilebotLogPath for details."
-    }
-    else {
-        LogOutput  "FileBot completed successfully."
+    # Process extractions first
+    foreach ($line in $extractions)
+    {
+        # Match lines like: Read archive [example.rar] and extract to [C:\Downloads\Example Movie]
+        if ($line -match 'Read archive \[(?<archive>[^\]]+)\] and extract to \[(?<dest>[^\]]+)\]')
+        {
+            $RarFile = "$ContentPath\$($matches['archive'])"
+            $OutputDir = "$($matches['dest'])"
+            LogOutput "Extracting archive: $RarFile to $OutputDir"
+            Extract-RarWith7Zip -RarFile $RarFile -OutputDir $OutputDir >$null 2>&1
+        }
     }
 
+    # Process files copying (with renaming) and artwork fetching
+    foreach ($line in $copies)
+    {
+        # Match lines like: [TEST] from [C:\Downloads\Example Movie\example.mkv] to [M:/Video/MoviesTmp/Example Movie (2023)/example.mkv-tmp]
+        if ($line -match 'from \[(?<src>[^\]]+)\] to \[(?<dst>[^\]]+)\]')
+        {
+            # Copy the file
+            $SourcePath = "$($matches['src'])"
+            $DestinationPath = "$($matches['dst'])"
+
+            # Remove the -tmp suffix for to get the final path
+            $finalFilepath = $DestinationPath -replace '-tmp(?=\.\w+$)', ''
+
+            # Get the video name for the final completion dialog box
+            $global:VideoName = Split-Path $finalFilepath -Leaf
+
+            # If the final file already exists
+            if (Test-Path $finalFilepath)
+            {
+                $finalSize = (Get-Item $finalFilepath).Length
+                $sourceSize = (Get-Item $SourcePath).Length
+
+                # If the file is the correct size
+                if ($finalSize -eq $sourceSize)
+                {
+                    # If the file already exists and is the same size, skip copying and just rename
+                    LogOutput "Renaming file: $finalFilepath to $DestinationPath"
+                    Rename-Item -Path $finalFilepath -NewName $DestinationPath
+                }
+                else
+                {
+                    LogOutput "$finalFilepath not the correct size, removing it"
+                    Remove-Item $finalFilepath -Force
+                }
+            }
+            else
+            {
+                LogOutput "Copying file: $SourcePath to temporary file $DestinationPath"
+                Copy-WithPathCheck -SourcePath $SourcePath -DestinationPath $DestinationPath
+            }
+
+            # Add artwork and move to final name
+            LogOutput "Rename $DestinationPath to $finalFilepath and add artwork"
+            & "$ExePath" -script fn:amc `
+                -non-strict `
+                -rename `
+                "$DestinationPath" `
+                --output "$OutputRoot" `
+                --action move `
+                --def seriesFormat="$SeriesFormat" `
+                --def movieFormat="$MovieFormat" `
+                --def artwork=y >$null 2>&1
+        }
+    }
 }
+
+function New-ControlPoint {
+    param (
+        [int]$x,
+        [int]$y
+    )
+    return New-Object System.Drawing.Point($x, $y)
+}
+
+function New-ControlSize {
+    param (
+        [int]$width,
+        [int]$height
+    )
+    return New-Object System.Drawing.Size($width, $height)
+}
+
 
 #******************************************************************************
 # Begin Execution
 #******************************************************************************
 
-LogOutput "******************************************************************************"
-LogOutput "Starting handledownload.ps1 script"
-LogOutput "******************************************************************************"
+LogOutput "****************************************************************************************"
+LogOutput "handledownload.ps1 -TorrentName '$TorrentName' -Category '$Category' -Tags '$Tags' -ContentPath '$ContentPath' -RootPath '$RootPath' -SavePath '$SavePath' -NumberOfFiles $NumberOfFiles -TorrentSize $TorrentSize -TorrentId $TorrentId"
+LogOutput "****************************************************************************************"
 
+
+# Set to $True for manual testing
 if ($False)
 {
     # Name of file or containing directory (if RAR or multiple files)
-    $TorrentName = "The Rookie S07E17 Mutiny and the Bounty 1080p AMZN WEB-DL DDP5 1 HEVC-YELLO"
-
+    $TorrentName = "star.trek.strange.new.worlds.s03e05.hdr.2160p.web.h265-successfulcrab.mkv"
     # Movie or TV
     $Category = "TV"
 
     # Path to file or containing directory (if RAR or multiple files)
-    $ContentPath = "F:\Downloads\TOR\Done\The Rookie S07E17 Mutiny and the Bounty 1080p AMZN WEB-DL DDP5 1 HEVC-YELLO\The Rookie S07E17 Mutiny and the Bounty 1080p AMZN WEB-DL DDP5 1 HEVC-YELLO.mkv"
+    $ContentPath = "E:\Downloads\TOR\Done\Star.Trek.Strange.New.Worlds.S03E05.HDR.2160p.WEB.H265-SuccessfulCrab\star.trek.strange.new.worlds.s03e05.hdr.2160p.web.h265-successfulcrab.mkv"
 
     # Path to torrent done directory (usually doesn't change)
     $SavePath = "F:\Downloads\TOR\Done"
-    LogOutput "C:\Program Files\FileBot\filebot.launcher.exe" -script "fn:amc" --output "P:/DLNA/Video" --log-file "$logFile" --action copy --conflict auto -non-strict --def "seriesFormat=TV Shows/{n}/{episode.special ? 'Specials' : 'Season '+s.pad(2)}/{n} -  {episode.special ? 'S00E'+special.pad(2) : s00e00} - {t} - {vf} - {bitdepth}b" --def "movieFormat=MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b" --def "reportError=y" --def "myepisodes=dangruhn:Mess#1024iah" --def "music=y" "artwork=y" "ut_label=" "ut_state=5" "ut_title=$TorrentName" "ut_kind=$Category" "ut_file=$ContentPath" "ut_dir=$SavePath" --def "clean=y" --def "minFileSize=0" --def "minLengthMS=0"
+    LogOutput "C:\Program Files\FileBot\filebot.launcher.exe" -script "fn:amc" --output "M:/Video" --log-file "$logFile" --action copy --conflict auto -non-strict --def "seriesFormat=TV Shows/{n}/{episode.special ? 'Specials' : 'Season '+s.pad(2)}/{n} -  {episode.special ? 'S00E'+special.pad(2) : s00e00} - {t} - {vf} - {bitdepth}b" --def "movieFormat=MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b" --def "reportError=y" --def "myepisodes=dangruhn:Mess#1024iah" --def "music=y" "artwork=y" "ut_label=" "ut_state=5" "ut_title=$TorrentName" "ut_kind=$Category" "ut_file=$ContentPath" "ut_dir=$SavePath" --def "clean=y" --def "minFileSize=0" --def "minLengthMS=0"
 
-    & "C:\Program Files\FileBot\filebot.launcher.exe" -script "fn:amc" --output "P:/DLNA/Video" --log-file "$logFile" --action copy --conflict auto -non-strict --def "seriesFormat=TV Shows/{n}/{episode.special ? 'Specials' : 'Season '+s.pad(2)}/{n} -  {episode.special ? 'S00E'+special.pad(2) : s00e00} - {t} - {vf} - {bitdepth}b" --def "movieFormat=MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b" --def "reportError=y" --def "myepisodes=dangruhn:Mess#1024iah" --def "music=y" "artwork=y" "ut_label=" "ut_state=5" "ut_title=$TorrentName" "ut_kind=$Category" "ut_file=$ContentPath" "ut_dir=$SavePath" --def "clean=y" --def "minFileSize=0" --def "minLengthMS=0"
+    & "C:\Program Files\FileBot\filebot.launcher.exe" -script "fn:amc" --output "M:/Video" --log-file "$logFile" --action copy --conflict auto -non-strict --def "seriesFormat=TV Shows/{n}/{episode.special ? 'Specials' : 'Season '+s.pad(2)}/{n} -  {episode.special ? 'S00E'+special.pad(2) : s00e00} - {t} - {vf} - {bitdepth}b" --def "movieFormat=MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b" --def "reportError=y" --def "myepisodes=dangruhn:Mess#1024iah" --def "music=y" "artwork=y" "ut_label=" "ut_state=5" "ut_title=$TorrentName" "ut_kind=$Category" "ut_file=$ContentPath" "ut_dir=$SavePath" --def "clean=y" --def "minFileSize=0" --def "minLengthMS=0"
 
 }
-# Set to $True for F1 download
+# Set to $True for F1 testing
 elseif ($False)
 {
    Import-F1Information
-   $SavePath = "E:\Downloads\TOR\Done\09.F1.2024.R14.Belgian.Grand.Prix.Teds.Notebook.SkyF1HD.1080P.mkv"
-
+   $SavePath = "E:\Downloads\TOR\Done\10.F1.2025.R18.Singapore.Grand.Prix.Race.Sky.Sports.F1.UHD.2160p.mkv"
    $ContentPath = $SavePath
    Invoke-FileProcessing  $SavePath $ContentPath
    exit 0
@@ -1173,38 +1331,167 @@ public class MutexLocker {
 
     LogOutput "Waiting for mutex: $mutexName"
 
-    try {
+    try
+    {
         # Wait until the mutex is acquired
-        $mutex.WaitOne()  # Blocks until available
+        $mutex.WaitOne()
 
         LogOutput "Mutex acquired. Processing download..."
 
         # If this is a Formula 1 file
-        if (($Tags -eq "F1") -or
-            ($Category -eq "F1") -or
-            (IsF1 $SavePath) -or
-            (IsF1 $ContentPath)) {
-            # Handle it ourselves
+        if (($Tags -eq "F1") -or ($Category -eq "F1") -or (IsF1 $SavePath) -or (IsF1 $ContentPath))
+        {
+
             Import-F1Information
             LogOutput "Processing F1 files in $SavePath with content $ContentPath"
             Invoke-FileProcessing $SavePath $ContentPath
         }
-        else {
-            Invoke-FileBot `
+        else
+        {
+            LogOutput "******************************************************************************"
+            LogOutput "${Category}:        $TorrentName"
+            LogOutput "******************************************************************************"
+
+            Invoke-MovieTvFileProcessing `
                 -TorrentName "$TorrentName" `
                 -Category "$Category" `
-                -ContentPath "$ContentPath" `
-                -RootPath "$RootPath" `
-                -SavePath "$SavePath" `
-                -NumberOfFiles $NumberOfFiles `
-                -TorrentSize $TorrentSize`
-                -TorrentId "$TorrentId"
+                -ContentPath "$ContentPath"
+
             # Optional: Trigger Plex library refresh via API or webhook
 
         }
     }
-    finally {
+    finally
+    {
         $mutex.ReleaseMutex()
         LogOutput "Mutex released."
     }
-} 
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+
+    # Layout constants
+    $formWidth = 1800
+    $hPadding = 10
+    $vPadding = 10
+
+    # Create form
+    $form = New-Object Windows.Forms.Form
+    $normalized = (Resolve-Path $ContentPath).Path
+    $finalComponent = Split-Path $normalized -Leaf
+    $form.Text = "Download Complete, Exiting"
+    $form.Size = New-Object System.Drawing.Size($formWidth, $formHeight)
+    $form.StartPosition = "Manual"
+    $form.Location = New-Object System.Drawing.Point (
+        (([System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Width  - $formWidth) / 2),
+        (([System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Height - $formHeight) / 2))
+    $form.Topmost = $true
+
+    # Track current Y position
+    $currentY = $vPadding
+
+    # Title label
+    $titleLabel = New-Object Windows.Forms.Label
+    $titleLabel.Text = ("$($global:VideoName)" -ne "") ? "$global:VideoName" : "$finalComponent"
+    $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.AutoSize = $true
+    $titleLabel.Location = New-Object System.Drawing.Point($hPadding, $currentY)
+    $form.Controls.Add($titleLabel)
+
+    # Move down after label
+    $currentY += $titleLabel.Height + $vPadding
+
+    # Progress bar
+    $progressBar = New-Object Windows.Forms.ProgressBar
+    $progressBar.Size = New-Object System.Drawing.Size(($formWidth - (3 * $hPadding)), 20)
+    $progressBar.Location = New-Object System.Drawing.Point($hPadding, $currentY)
+    $progressBar.Value = 0
+    $form.Controls.Add($progressBar)
+
+    # Move down after progress bar
+    $currentY += $progressBar.Height + $vPadding
+
+    # Exit button
+    $exitButton = New-Object Windows.Forms.Button
+    $exitButton.Text = "Exit"
+    $exitButton.Size = New-Object System.Drawing.Size(80, 30)
+    $exitButton.Location = New-Object System.Drawing.Point((($formWidth - $exitButton.Width) / 2), $currentY)
+    $exitButton.Add_Click({ $form.Close() })
+    $form.Controls.Add($exitButton)
+
+    # Pause button (placed next to Exit)
+    $pauseButton = New-Object Windows.Forms.Button
+    $pauseButton.Text = "Pause"
+    $pauseButton.Size = New-Object System.Drawing.Size(80, 30)
+    $pauseButton.Location = New-Object System.Drawing.Point(($exitButton.Location.X + $exitButton.Width + $hPadding), $currentY)
+    $form.Controls.Add($pauseButton)
+
+    # Track bottom-most control
+    $bottomControl = $form.Controls | Sort-Object { $_.Bottom } -Descending | Select-Object -First 1
+
+    # Add padding at bottom
+    $form.Height = $bottomControl.Bottom + $bottomControl.Height + (3 * $vPadding)
+
+    # Set up global state for timer and add click and tick handlers
+    $global:timerCancelled = $false
+    $global:timerRunning = $true
+
+    # Exit logic
+    $global:exited = $false
+    $exitButton.Add_Click({
+        $global:exited = $true
+        $global:timerCancelled = $true
+        $form.Close()
+    })
+
+    # Timer logic
+    $state = [pscustomobject]@{ Counter = 0 }
+    $timer = New-Object Windows.Forms.Timer
+    $timer.Interval = 200  # 200ms = 20s total
+    $timer.Add_Tick({
+        if ($global:timerCancelled)
+        {
+            $timer.Stop()
+            return
+        }
+        if ($global:timerRunning)
+        {
+            $state.Counter++
+            $progressBar.Value = [Math]::Min($state.Counter, $progressBar.Maximum)
+            if ($state.Counter -ge $progressBar.Maximum)
+            {
+                $timer.Stop()
+                $form.Close()
+            }
+        }
+        [System.Windows.Forms.Application]::DoEvents()
+    })
+
+    # Toggle pause/start state
+    $pauseButton.Add_Click({
+        # If timer is running, pause it
+        if ($global:timerRunning)
+        {
+            $pauseButton.Text = "Start"
+            $global:timerRunning = $false
+            $timer.Stop()
+        }
+        else # Timer is paused, start it
+        {
+            $pauseButton.Text = "Pause"
+            $global:timerRunning = $true
+            $timer.Start()
+        }
+    })
+
+    # Start timer after form is shown
+    $form.Add_Shown({
+            $form.Activate()
+            $form.Focus()
+            $form.BringToFront()
+            Start-Sleep -Milliseconds 500
+            $timer.Start()
+        })
+
+    # Run the form with message loop
+    [Windows.Forms.Application]::Run($form)
+}
