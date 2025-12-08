@@ -4,21 +4,71 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        {
-            "name": "PowerShell: Launch handledownload",
+       {
+           "name": "PowerShell: SearchSongs.ps1 - Album List",
+           "type": "PowerShell",
+           "request": "launch",
+           "script": "${workspaceFolder}/SearchSongs.ps1",
+           "args": [
+               "-InputFile", "\"C:\\Users\\Dan.Gruhn\\AlbumList.txt\""
+           ]
+       },
+       {
+            "name": "PowerShell: Test",
             "type": "PowerShell",
             "request": "launch",
             "script": "${file}",
             "args": [
-                "-TorrentName", "\"Supernatural S01E03 Dead in the Water REPACK2 1080p AMZN WEB-DL DDP2 0 H 264-Kitsune\"",
-                "-Category", "TV",
-                "-ContentPath", "\"E:\\Downloads\\TOR\\Done\\Supernatural S01E03 Dead in the Water REPACK2 1080p AMZN WEB-DL DDP2 0 H 264-Kitsune\"",
-                "-RootPath", "\"E:\\Downloads\\TOR\\Done\\Supernatural S01E03 Dead in the Water REPACK2 1080p AMZN WEB-DL DDP2 0 H 264-Kitsune\"",
-                "-SavePath", "\"E:\\Downloads\\TOR\\Done\"",
-                "-NumberOfFiles", "2",
-                "-TorrentSize", "3201045854",
-                "-TorrentId", "ace45ca88ea79c96d4e46c25713510fdf010b66e"
             ],
-        }
+        },
+        {
+            "name": "PowerShell: Test1.ps1",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "args": [
+            ],
+        },      
+        {
+            "name": "PowerShell: handledownload.ps1 Tony and Ziva",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "args": [
+                "-TorrentName", "\"NCIS.Tony.and.Ziva.S01E10.HDR.2160p.WEB.h265-GRACE\"",
+                 "-Category", "TV",
+                 "-ContentPath", "D:\\Downloads\\TOR\\Done\\NCIS.Tony.and.Ziva.S01E10.HDR.2160p.WEB.h265-GRACE",
+                 "-RootPath", "D:\\Downloads\\TOR\\Done\\NCIS.Tony.and.Ziva.S01E10.HDR.2160p.WEB.h265-GRACE",
+                 "-SavePath", "D:\\Downloads\\TOR\\Done",
+                 "-NumberOfFiles", "23",
+                 "-TorrentSize", "2049301132",
+                 "-TorrentId", "bdd3d3e3c07680646d9e146dd20266004ee1662b"
+            ],
+        },
+        {
+            "name": "PowerShell: launch-handledownload.ps1",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "args": [
+                "-StartPath", "\"E:\\Downloads\\TOR\\Done\\Supernatural S01E21 Salvation 1080p AMZN WEB-DL DD 2 0 H 264-playWEB\\Supernatural S01E21 Salvation 1080p AMZN WEB-DL DD 2 0 H 264-playWEB.mkv\"",
+            ],
+        },
+        {
+            "name": "PowerShell: handledownload.ps1 F1",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "args": [
+                "-TorrentName", "\"06.F1.2025.R21.São.Paulo.Grand.Prix.Sprint.Sky.Sports.F1.UHD.2160p.mkv\"",
+                "-Category", "F1",
+                "-ContentPath", "\"E:\\Downloads\\TOR\\Done\\06.F1.2025.R21.São.Paulo.Grand.Prix.Sprint.Sky.Sports.F1.UHD.2160p.mkv\"",
+                "-RootPath", "\"E:\\Downloads\\TOR\\Done\\06.F1.2025.R21.São.Paulo.Grand.Prix.Sprint.Sky.Sports.F1.UHD.2160p.mkv\"",
+                "-SavePath", "\"E:\\Downloads\\TOR\\Done\"",
+                "-NumberOfFiles", "1",
+                "-TorrentSize", "13336845102",
+                "-TorrentId", "f0e8ad5ed665f11bd6cf0e1aadd1322523f6bbef"
+            ],
+        },
     ]
 }
