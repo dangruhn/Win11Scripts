@@ -1228,17 +1228,14 @@ MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b
                 $finalSize = (Get-Item $finalFilepath).Length
                 $sourceSize = (Get-Item $SourcePath).Length
 
-                # If the file is the correct size
-                if ($finalSize -eq $sourceSize)
-                {
-                    # If the file already exists and is the same size, skip copying and just rename
-                    LogOutput "Renaming file: $finalFilepath to $DestinationPath"
-                    Rename-Item -Path $finalFilepath -NewName $DestinationPath
-                }
-                else
+                # If the file is not the correct size
+                if ($finalSize -ne $sourceSize)
                 {
                     LogOutput "$finalFilepath not the correct size, removing it"
                     Remove-Item $finalFilepath -Force
+
+                    LogOutput "Copying file: $SourcePath to temporary file $DestinationPath"
+                    Copy-WithPathCheck -SourcePath $SourcePath -DestinationPath $DestinationPath
                 }
             }
             else
@@ -1248,7 +1245,7 @@ MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b
             }
 
             # Add artwork and move to final name
-            LogOutput "Rename $DestinationPath to $finalFilepath and add artwork"
+            LogOutput ("Rename {0} to {1} and add artwork" -f (Split-Path $finalFilepath -Leaf), (Split-Path $SourcePath -Leaf))
             & "$ExePath" -script fn:amc `
                 -non-strict `
                 -rename `
