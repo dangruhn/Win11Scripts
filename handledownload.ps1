@@ -1053,7 +1053,7 @@ Function Get-EventInfoF1
                     $circuitRef = $circuit.circuitRef
 
                     # Get the circuit ID
-                    $circuitObj = $script:F1Circuits | Where-Object { $_.circuitId -eq $circuitRef }
+                    $circuitObj = $script:F1Circuits | Where-Object { $_.circuitId -eq $circuitRef } | Select-Object -First 1
                     if ($null -ne $circuitObj) {
                         $circuitId = $circuitObj.circuitId
                     } else {
@@ -1071,7 +1071,7 @@ Function Get-EventInfoF1
                 $pattern = $pattern -replace ' ', '\.'
                 if ($srcName -imatch $pattern)
                 {
-                    $circuitName = $circuit.CircuitName
+                    $circuitName = $circuit.circuitName
                     $circuitId = $circuit.circuitId
                     break doneCircuit
                 }
@@ -1083,12 +1083,12 @@ Function Get-EventInfoF1
     $FileRaceList = $script:F1Races | Where-Object { $_.Circuit.circuitId -eq $circuitId }
 
     # Get the race date in the year
-    $FileRace = ($FileRaceList | Where-Object { $_.season -eq $year } | Select-Object -First 1)
+    $FileRace = ($FileRaceList | Where-Object { $_.season -eq [int]$year } | Select-Object -First 1)
     $raceDate = $FileRace.date
     $raceRound = $FileRace.round
 
     # If we can determine race/date
-    if ($raceDate)
+    if ($null -ne $raceDate -and $raceDate -ne '')
     {
         # Get the date in the proper format
         [DateTime]$dateTime = $raceDate
@@ -1443,7 +1443,7 @@ public class MutexLocker {
     # Timer logic
     $state = [pscustomobject]@{ Counter = 0 }
     $timer = New-Object Windows.Forms.Timer
-    $timer.Interval = 200  # 200ms = 20s total
+    $timer.Interval = 100  # 100ms = 10s total
     $timer.Add_Tick({
         if ($global:timerCancelled)
         {
