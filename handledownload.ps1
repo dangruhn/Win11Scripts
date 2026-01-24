@@ -611,10 +611,9 @@ function Copy-WithProgress {
 
     $window = New-Object Windows.Window
     $window.Title = "Path Confirmation"
-    $window.Width = 960
-    $window.Height = 300 
     $window.WindowStartupLocation = 'CenterScreen'
     $window.Topmost = $true
+    $window.SizeToContent = 'WidthAndHeight'
 
 
     $stackPanel = New-Object Windows.Controls.StackPanel
@@ -623,24 +622,22 @@ function Copy-WithProgress {
     # Source Path TextBlock
     $srcText = New-Object Windows.Controls.TextBlock
     $srcText.Text = "Source: $SourcePath"
-    $srcText.Width = 920
-    $srcText.Height = 30
+    $srcText.MaxWidth = 1250
     $srcText.Padding = '6,2,6,2'
-    $srcText.TextWrapping = 'NoWrap'
+    $srcText.TextWrapping = 'Wrap'
     $srcText.Margin = '0,0,0,8'
     $srcText.ToolTip = $SourcePath
-    $srcText.FontFamily = 'Consolas'
+    $srcText.FontFamily = 'Segoe UI'
 
     # Destination Path TextBlock
     $destText = New-Object Windows.Controls.TextBlock
     $destText.Text = "Destination: $DestinationPath"
-    $destText.Width = 920
-    $destText.Height = 30
+    $destText.MaxWidth = 1250
     $destText.Padding = '6,2,6,2'
-    $destText.TextWrapping = 'NoWrap'
+    $destText.TextWrapping = 'Wrap'
     $destText.Margin = '0,0,0,8'
     $destText.ToolTip = $DestinationPath
-    $destText.FontFamily = 'Consolas'
+    $destText.FontFamily = 'Segoe UI'
 
     # File Size Label
     $sizeLabel = New-Object Windows.Controls.TextBlock
@@ -651,8 +648,8 @@ function Copy-WithProgress {
     $progressBar = New-Object Windows.Controls.ProgressBar
     $progressBar.Minimum = 0
     $progressBar.Height = 20
-    $progressBar.Width = 480
     $progressBar.Margin = '0,0,0,6'
+    $progressBar.HorizontalAlignment = 'Stretch'
 
     # Percent Complete Label
     $percentLabel = New-Object Windows.Controls.TextBlock
@@ -869,7 +866,7 @@ Function CopyF1File
 # Process a file
 #********************************************************************************
 
-Function Invoke-FileProcessing
+Function Invoke-F1FileProcessing
 {
     $srcFolder = $args[0]
     $SrcPathname = $args[1]
@@ -883,7 +880,7 @@ Function Invoke-FileProcessing
         # Process each subfile
         foreach ($subfile in $fileList)
         {
-            Invoke-FileProcessing $SrcPathname "$SrcPathname\$subfile"
+            Invoke-F1FileProcessing $SrcPathname "$SrcPathname\$subfile"
         }
     }
     else
@@ -912,7 +909,7 @@ Function Invoke-FileProcessing
                 & "C:\Program Files\WinRAR\Rar.exe" -y -idq e "$SrcPathname" $TempFolder
 
                 # Process the expanded files in the temp folder
-                Invoke-FileProcessing $srcFolder "$TempFolder"
+                Invoke-F1FileProcessing $srcFolder "$TempFolder"
 
                 # Remove the temp folder and expanded files
                 Remove-Item -path "$TempFolder" -recurse -force
@@ -1309,7 +1306,7 @@ elseif ($False)
    Import-F1Information
    $SavePath = "E:\Downloads\TOR\Done\10.F1.2025.R18.Singapore.Grand.Prix.Race.Sky.Sports.F1.UHD.2160p.mkv"
    $ContentPath = $SavePath
-   Invoke-FileProcessing  $SavePath $ContentPath
+   Invoke-F1FileProcessing  $SavePath $ContentPath
    exit 0
 }
 else
@@ -1341,7 +1338,7 @@ public class MutexLocker {
 
             Import-F1Information
             LogOutput "Processing F1 files in $SavePath with content $ContentPath"
-            Invoke-FileProcessing $SavePath $ContentPath
+            Invoke-F1FileProcessing $SavePath $ContentPath
         }
         else
         {
@@ -1366,67 +1363,83 @@ public class MutexLocker {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
 
-    # Layout constants
-    $formWidth = 1800
+    # Layout: use FlowLayoutPanel so controls are positioned automatically
     $hPadding = 10
     $vPadding = 10
 
-    # Create form
     $form = New-Object Windows.Forms.Form
     $normalized = (Resolve-Path $ContentPath).Path
     $finalComponent = Split-Path $normalized -Leaf
     $form.Text = "Download Complete, Exiting"
-    $form.Size = New-Object System.Drawing.Size($formWidth, $formHeight)
-    $form.StartPosition = "Manual"
-    $form.Location = New-Object System.Drawing.Point (
-        (([System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Width  - $formWidth) / 2),
-        (([System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Height - $formHeight) / 2))
-    $form.Topmost = $true
+    $form.StartPosition = 'CenterScreen'
+    $form.TopMost = $true
+    $form.AutoSize = $true
+    $form.AutoSizeMode = 'GrowAndShrink'
 
-    # Track current Y position
-    $currentY = $vPadding
+    # Layout: table with content on left and buttons on right
+    $table = New-Object System.Windows.Forms.TableLayoutPanel
+    $table.ColumnCount = 2
+    $table.RowCount = 1
+    $table.Dock = 'Fill'
+    $table.AutoSize = $true
+    $table.AutoSizeMode = 'GrowAndShrink'
+    $table.Padding = New-Object System.Windows.Forms.Padding($hPadding, $vPadding, $hPadding, $vPadding)
+    $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
+
+    # Left content panel (vertical)
+    $contentPanel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $contentPanel.FlowDirection = 'TopDown'
+    $contentPanel.WrapContents = $false
+    $contentPanel.AutoSize = $true
+    $contentPanel.AutoSizeMode = 'GrowAndShrink'
+    $contentPanel.Dock = 'Fill'
 
     # Title label
     $titleLabel = New-Object Windows.Forms.Label
     $titleLabel.Text = ("$($global:VideoName)" -ne "") ? "$global:VideoName" : "$finalComponent"
     $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
     $titleLabel.AutoSize = $true
-    $titleLabel.Location = New-Object System.Drawing.Point($hPadding, $currentY)
-    $form.Controls.Add($titleLabel)
-
-    # Move down after label
-    $currentY += $titleLabel.Height + $vPadding
+    $contentPanel.Controls.Add($titleLabel)
 
     # Progress bar
     $progressBar = New-Object Windows.Forms.ProgressBar
-    $progressBar.Size = New-Object System.Drawing.Size(($formWidth - (3 * $hPadding)), 20)
-    $progressBar.Location = New-Object System.Drawing.Point($hPadding, $currentY)
+    $progressBar.Height = 20
+    $progressBar.Width = 600
     $progressBar.Value = 0
-    $form.Controls.Add($progressBar)
+    $contentPanel.Controls.Add($progressBar)
 
-    # Move down after progress bar
-    $currentY += $progressBar.Height + $vPadding
+    # Countdown label
+    $countdownLabel = New-Object Windows.Forms.Label
+    $countdownLabel.Text = "Time Remaining: $([math]::Round($state.Counter / 10,1))s"
+    $countdownLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
+    $countdownLabel.AutoSize = $true
+    $contentPanel.Controls.Add($countdownLabel)
 
-    # Exit button
+    # Right button panel (vertical) placed in the second column
+    $buttonPanel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $buttonPanel.FlowDirection = 'TopDown'
+    $buttonPanel.WrapContents = $false
+    $buttonPanel.AutoSize = $true
+    $buttonPanel.AutoSizeMode = 'GrowAndShrink'
+    $buttonPanel.Padding = New-Object System.Windows.Forms.Padding(0,0,0,0)
+
     $exitButton = New-Object Windows.Forms.Button
     $exitButton.Text = "Exit"
-    $exitButton.Size = New-Object System.Drawing.Size(80, 30)
-    $exitButton.Location = New-Object System.Drawing.Point((($formWidth - $exitButton.Width) / 2), $currentY)
+    $exitButton.AutoSize = $true
     $exitButton.Add_Click({ $form.Close() })
-    $form.Controls.Add($exitButton)
+    $buttonPanel.Controls.Add($exitButton)
 
-    # Pause button (placed next to Exit)
     $pauseButton = New-Object Windows.Forms.Button
     $pauseButton.Text = "Pause"
-    $pauseButton.Size = New-Object System.Drawing.Size(80, 30)
-    $pauseButton.Location = New-Object System.Drawing.Point(($exitButton.Location.X + $exitButton.Width + $hPadding), $currentY)
-    $form.Controls.Add($pauseButton)
+    $pauseButton.AutoSize = $true
+    $buttonPanel.Controls.Add($pauseButton)
 
-    # Track bottom-most control
-    $bottomControl = $form.Controls | Sort-Object { $_.Bottom } -Descending | Select-Object -First 1
+    # Add panels to table
+    $table.Controls.Add($contentPanel, 0, 0)
+    $table.Controls.Add($buttonPanel, 1, 0)
 
-    # Add padding at bottom
-    $form.Height = $bottomControl.Bottom + $bottomControl.Height + (3 * $vPadding)
+    $form.Controls.Add($table)
 
     # Set up global state for timer and add click and tick handlers
     $global:timerCancelled = $false
@@ -1441,9 +1454,13 @@ public class MutexLocker {
     })
 
     # Timer logic
-    $state = [pscustomobject]@{ Counter = 0 }
+    $totalTicks = 100  # 10 seconds at 100ms intervals
+    $state = [pscustomobject]@{ Counter = $totalTicks }
+    $progressBar.Maximum = $totalTicks
+    $progressBar.Value = $totalTicks
+
     $timer = New-Object Windows.Forms.Timer
-    $timer.Interval = 100  # 100ms = 10s total
+    $timer.Interval = 100  # 100ms
     $timer.Add_Tick({
         if ($global:timerCancelled)
         {
@@ -1452,9 +1469,10 @@ public class MutexLocker {
         }
         if ($global:timerRunning)
         {
-            $state.Counter++
-            $progressBar.Value = [Math]::Min($state.Counter, $progressBar.Maximum)
-            if ($state.Counter -ge $progressBar.Maximum)
+            $state.Counter--
+            $progressBar.Value = [Math]::Max($state.Counter, $progressBar.Minimum)
+            $countdownLabel.Text = "Time Remaining: $([math]::Round($state.Counter / 10, 1))s"
+            if ($state.Counter -le 0)
             {
                 $timer.Stop()
                 $form.Close()
