@@ -285,6 +285,10 @@ $eventTypes = @(
         Name = "05 - F1 Show"
     },
     @{
+        Pattern = "(?<=\W|^)Shakedown.*Day(\d{1,2})(?=\W|$)/(?<=\W|^)Day(\d{1,2}).*Shakedown(?=\W|$)"
+        Name = { param($m) "7$($m.Groups[1].Value) Shakedown" }
+    },
+    @{
         Pattern = "(?<=\W|^)(?:free\W+)?practice\W+(?:one|1)(?=\W|$)/(?<=\W|^)FP1(?=\W|$)"
         Name = "11 - Free Practice 1"
     },
@@ -1103,9 +1107,14 @@ Function Get-EventInfoF1
                 foreach ($pattern in @($eventType.Pattern -Split "/" ))
                 {
                     $pattern = $pattern -replace ' ', '[\s\.]+'
-                    if ($srcName -imatch $pattern)
+                    $m = [regex]::Match($srcName, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+                    if ($m.Success)
                     {
-                        $eventName = $eventType.Name
+                        if ($eventType.Name -is [scriptblock]) {
+                            $eventName = & $eventType.Name $m
+                        } else {
+                            $eventName = $eventType.Name
+                        }
                         break doneEvent
                     }
                 }
@@ -1409,9 +1418,9 @@ public class MutexLocker {
     $progressBar.Value = 0
     $contentPanel.Controls.Add($progressBar)
 
-    # Countdown label
+    # Countdown label (show whole seconds)
     $countdownLabel = New-Object Windows.Forms.Label
-    $countdownLabel.Text = "Time Remaining: $([math]::Round($state.Counter / 10,1))s"
+    $countdownLabel.Text = "Time Remaining: $([math]::Ceiling($state.Counter / 10))s"
     $countdownLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
     $countdownLabel.AutoSize = $true
     $contentPanel.Controls.Add($countdownLabel)
@@ -1471,7 +1480,7 @@ public class MutexLocker {
         {
             $state.Counter--
             $progressBar.Value = [Math]::Max($state.Counter, $progressBar.Minimum)
-            $countdownLabel.Text = "Time Remaining: $([math]::Round($state.Counter / 10, 1))s"
+            $countdownLabel.Text = "Time Remaining: $([math]::Ceiling($state.Counter / 10))s"
             if ($state.Counter -le 0)
             {
                 $timer.Stop()
