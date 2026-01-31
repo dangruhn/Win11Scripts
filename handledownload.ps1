@@ -141,127 +141,127 @@ $script:F1Races = @()
 $formula1Circuits = @(
     @{
        circuitRef = "yas_marina"
-       Pattern = "Abu Dhabi/Abu-Dhabi/Yas Marina Circuit/Abu Dhabi Grand Prix"
+             Pattern = "(?:Abu Dhabi|Abu-Dhabi|Yas Marina Circuit|Abu Dhabi Grand Prix)"
        CircuitName = "Abu Dhabi"
     },
     @{
        circuitRef = "shanghai"
-       Pattern = "Chinese/China/Shanghai International Circuit/Shanghai/China Grand Prix/Chinese Grand Prix"
+             Pattern = "(?:Chinese|China|Shanghai International Circuit|Shanghai|China Grand Prix|Chinese Grand Prix)"
        CircuitName = "Shanghai"
     },
     @{
        circuitRef = "albert_park"
-       Pattern = "Australia/Albert Park Circuit/Australian Grand Prix"
+             Pattern = "(?:Australia|Albert Park Circuit|Australian Grand Prix)"
        CircuitName = "Australia"
     },
     @{
        circuitRef = "red_bull_ring"
-       Pattern = "Austria/Red Bull Ring/Austrian Grand Prix"
+             Pattern = "(?:Austria|Red Bull Ring|Austrian Grand Prix)"
        CircuitName = "Austria"
     },
     @{
        circuitRef = "baku"
-       Pattern = "Azerbaijan/Baku City Circuit/Azerbaijan Grand Prix"
+             Pattern = "(?:Azerbaijan|Baku City Circuit|Azerbaijan Grand Prix)"
        CircuitName = "Azerbaijan"
     },
     @{
        circuitRef = "bahrain"
-       Pattern = "Bahrain/Bahrain International Circuit/Bahrain Grand Prix"
+             Pattern = "(?:Bahrain|Bahrain International Circuit|Bahrain Grand Prix)"
        CircuitName = "Bahrain"
     },
     @{
        circuitRef = "spa"
-       Pattern = "Belgium/Circuit de Spa-Francorchamps/Belgian Grand Prix"
+             Pattern = "(?:Belgium|Circuit de Spa-Francorchamps|Belgian Grand Prix)"
        CircuitName = "Belgium"
     },
-    @{
-       circuitRef = "interlagos"
-       Pattern = "Brazil/Sao Paulo/Autodromo Jose Carlos Pace/Brazilian Grand Prix/Brazilian"
-       CircuitName = "Brazil"
-    },
-    @{
-       circuitRef = "villeneuve"
-       Pattern = "Canada/Circuit Gilles Villeneuve/Canadian Grand Prix"
-       CircuitName = "Canada"
-    },
-    @{
-       circuitRef = "imola"
-       Pattern = "Emilia Romagna/Emilia-Romagna/Autodromo Enzo e Dino Ferrari/Emilia-Romagna Grand Prix/Emilia Romagna Grand Prix"
-       CircuitName = "Imola"
-    },
-    @{
-       circuitRef = "catalunya"
-       Pattern = "Spain/Circuit de Barcelona-Catalunya/Spanish Grand Prix"
-       CircuitName = "Barcelona"
-    },
-    @{
-       circuitRef = "hungaroring"
-       Pattern = "Hungary Race/Hungary/Hungaroring/Hungarian Grand Prix"
-       CircuitName = "Hungary"
-    },
+        @{
+         circuitRef = "interlagos"
+             Pattern = "(?:Brazil|Sao Paulo|São Paulo|Interlagos|Autodromo Jose Carlos Pace|Brazilian Grand Prix|Brazilian)"
+         CircuitName = "Brazil"
+        },
+        @{
+         circuitRef = "villeneuve"
+             Pattern = "(?:Canada|Canadian|Circuit Gilles Villeneuve|Gilles Villeneuve|Montreal|Canadian Grand Prix)"
+         CircuitName = "Canada"
+        },
+        @{
+         circuitRef = "imola"
+             Pattern = "(?:Emilia Romagna|Emilia-Romagna|Imola|Autodromo Enzo e Dino Ferrari|Emilia-Romagna Grand Prix|Emilia Romagna Grand Prix)"
+         CircuitName = "Imola"
+        },
+        @{
+         circuitRef = "catalunya"
+             Pattern = "(?:Spain|Spanish|Circuit de Barcelona-Catalunya|Barcelona|Catalunya|Spanish Grand Prix)"
+         CircuitName = "Barcelona"
+        },
+        @{
+         circuitRef = "hungaroring"
+             Pattern = "(?:Hungary|Hungarian|Hungaroring|Hungarian Grand Prix)"
+         CircuitName = "Hungary"
+        },
     @{
        circuitRef = "monza"
-       Pattern = "Italy/Autodromo Nazionale di Monza/Italian/Italian Grand Prix"
+             Pattern = "(?:Italy|Autodromo Nazionale di Monza|Italian|Italian Grand Prix)"
        CircuitName = "Monza"
     },
     @{
        circuitRef = "suzuka"
-       Pattern = "Japan/Suzuka International Circuit/Japanese Grand Prix"
+             Pattern = "(?:Japan|Suzuka International Circuit|Japanese Grand Prix)"
        CircuitName = "Suzuka"
     },
     @{
        circuitRef = "vegas"
-       Pattern = "Las Vegas/Las Vegas Motor Speedway/Las Vegas Grand Prix"
+             Pattern = "(?:Las Vegas|Las Vegas Motor Speedway|Las Vegas Grand Prix)"
        CircuitName = "Las Vegas"
     },
-    @{
-       circuitRef = "silverstone"
-       Pattern = "UK/U.K./Great Britain/British/British Grand Prix"
-       CircuitName = "Great Britain"
-    },
-    @{
-       circuitRef = "rodriguez"
-       Pattern = "Mexico/Autodromo Hermanos Rodr�guez/Mexican Grand Prix/Mexican"
-       CircuitName = "Mexico"
-    },
+        @{
+         circuitRef = "silverstone"
+             Pattern = "(?:UK|U.K.|Great Britain|British|British Grand Prix|Silverstone)"
+         CircuitName = "Great Britain"
+        },
+        @{
+         circuitRef = "rodriguez"
+             Pattern = "(?:Mexico|Autodromo Hermanos Rodriguez|Autodromo Hermanos Rodr\u00EDguez|Autodromo Hermanos Rodriguez|Mexican Grand Prix|Mexican)"
+         CircuitName = "Mexico"
+        },
     @{
        circuitRef = "miami"
-       Pattern = "Miami/Miami International Autodrome/Miami Grand Prix"
+             Pattern = "(?:Miami|Miami International Autodrome|Miami Grand Prix)"
        CircuitName = "Miami"
     },
     @{
        circuitRef = "monaco"
-       Pattern = "Monaco/Circuit de Monaco/Monaco Grand Prix"
+             Pattern = "(?:Monaco|Circuit de Monaco|Monaco Grand Prix)"
        CircuitName = "Monaco"
     },
    @{
        circuitRef = "zandvoort"
-       Pattern = "Netherlands/Circuit Zandvoort/Dutch Grand Prix/Dutch"
+             Pattern = "(?:Netherlands|Circuit Zandvoort|Dutch Grand Prix|Dutch)"
        CircuitName = "Netherlands"
     },
     @{
        circuitRef = "losail"
-       Pattern = "Qatar/Losail International Circuit/Qatar Grand Prix"
+             Pattern = "(?:Qatar|Losail International Circuit|Qatar Grand Prix)"
        CircuitName = "Qatar"
     },
     @{
        circuitRef = "jeddah"
-       Pattern = "Saudi Arabia/Jeddah Corniche Circuit/Saudi Arabian Grand Prix"
+             Pattern = "(?:Saudi Arabia|Jeddah Corniche Circuit|Saudi Arabian Grand Prix)"
        CircuitName = "Saudi Arabia"
     },
     @{
        circuitRef = "montjuic"
-       Pattern = "Spain/Circuit de Barcelona-Catalunya/Spanish Grand Prix"
+             Pattern = "(?:Spain|Circuit de Barcelona-Catalunya|Spanish Grand Prix)"
        CircuitName = "Spain"
     },
     @{
        circuitRef = "marina_bay"
-       Pattern = "Singapore/Marina Bay Street Circuit/Singapore Grand Prix"
+             Pattern = "(?:Singapore|Marina Bay Street Circuit|Singapore Grand Prix)"
        CircuitName = "Singapore"
     },
     @{
        circuitRef = "americas"
-       Pattern = "United States/USA/COTA/Circuit of the Americas/American Grand Prix/United States Grand Prix/American/austin"
+             Pattern = "(?:United States|USA|COTA|Circuit of the Americas|American Grand Prix|United States Grand Prix|American|austin)"
        CircuitName = "United States COTA"
     }
 )
@@ -285,19 +285,19 @@ $eventTypes = @(
         Name = "05 - F1 Show"
     },
     @{
-        Pattern = "(?<=\W|^)Shakedown.*Day(\d{1,2})(?=\W|$)/(?<=\W|^)Day(\d{1,2}).*Shakedown(?=\W|$)"
-        Name = { param($m) "7$($m.Groups[1].Value) Shakedown" }
+        Pattern = "(?<=\W|^)(?:Shakedown.*Day(?<day>\d{1,2})|Day(?<day>\d{1,2}).*Shakedown)(?=\W|$)"
+        Name = { param($m) "80 - Shakedown Day $([int]$m.Groups['day'].Value)" }
     },
     @{
-        Pattern = "(?<=\W|^)(?:free\W+)?practice\W+(?:one|1)(?=\W|$)/(?<=\W|^)FP1(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)(?:free\W+)?practice\W+(?:one|1)(?=\W|$)|(?<=\W|^)FP1(?=\W|$))"
         Name = "11 - Free Practice 1"
     },
     @{
-        Pattern = "(?<=\W|^)(?:free\W+)?practice\W+(?:two|2)(?=\W|$)/(?<=\W|^)FP2(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)(?:free\W+)?practice\W+(?:two|2)(?=\W|$)|(?<=\W|^)FP2(?=\W|$))"
         Name = "12 - Free Practice 2"
     },
     @{
-        Pattern = "(?<=\W|^)(?:free\W+)?practice\W+(?:three|3)(?=\W|$)/(?<=\W|^)FP3(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)(?:free\W+)?practice\W+(?:three|3)(?=\W|$)|(?<=\W|^)FP3(?=\W|$))"
         Name = "13 - Free Practice 3"
     },
     @{
@@ -326,15 +326,15 @@ $eventTypes = @(
     },
 
    @{
-        Pattern = "(?<=\W|^)pre[\W-]+shootou\W+buildup(?<=\W|^)/(?<=\W|^)pre[\W-]+shooutout\W+buildup(?<=\W|^)/(?<=\W|^)pre[\W-]+sprint\W+qualifying\W+buildup(?<=\W|^)"
+        Pattern = "(?:(?<=\W|^)pre[\W-]+shootout\W+buildup(?<=\W|^)|(?<=\W|^)pre[\W-]+shootout\W+buildup(?<=\W|^)|(?<=\W|^)pre[\W-]+sprint\W+qualifying\W+buildup(?<=\W|^))"
         Name = "31 - Pre-Sprint Qualifying Buildup"
     },
    @{
-        Pattern = "(?<=\W|^)post[\W-]+shootout.analysis(?=\W|$)/(?<=\W|^)post[\W-]+shooutout\W+analysis(?=\W|$)/(?<=\W|^)post[\W-]+sprint\W+qualifying\W+analysis(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)post[\W-]+shootout\.analysis(?=\W|$)|(?<=\W|^)post[\W-]+shootout\W+analysis(?=\W|$)|(?<=\W|^)post[\W-]+sprint\W+qualifying\W+analysis(?=\W|$))"
         Name = "33 - Post-Sprint Qualifying Analysis"
     },
     @{
-        Pattern = "(?<=\W|^)sprint.qualifying(?=\W|$)/(?<=\W|^)shootout\W+session(?=\W|$)/(?<=\W|^)sprint\W+shootout(?=\W|$)/(?<=\W|^)shooutout\W+session(?=\W|$)/(?<=\W|^)sprint\W+shooutout(?=\W|$)/(?<=\W|^)sprint\W+qualifying\W+session(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)sprint\W+qualifying(?=\W|$)|(?<=\W|^)shootout\W+session(?=\W|$)|(?<=\W|^)sprint\W+shootout(?=\W|$)|(?<=\W|^)shootout\W+session(?=\W|$)|(?<=\W|^)sprint\W+shootout(?=\W|$)|(?<=\W|^)sprint\W+qualifying\W+session(?=\W|$))"
         Name = "32 - Sprint Qualifying"
     },
    @{
@@ -342,15 +342,15 @@ $eventTypes = @(
         Name = "41 - Pre-Sprint Buildup"
     },
    @{
-        Pattern = "(?<=\W|^)post[\W-]+sprint.analysis(?=\W|$)/(?<=\W|^)post[\W-]+Sprint\W+Qualifying\W+Analysis(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)post[\W-]+sprint\W+analysis(?=\W|$)|(?<=\W|^)post[\W-]+Sprint\W+Qualifying\W+Analysis(?=\W|$))"
         Name = "43 - Post-Sprint Analysis"
     },
    @{
-        Pattern = "(?<=\W|^)sprint\W+session(?=\W|$)/(?<=\W|^)sprint\W+race(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)sprint\W+session(?=\W|$)|(?<=\W|^)sprint\W+race(?=\W|$))"
         Name = "42 - Sprint Race"
     },
    @{
-        Pattern = "(?<=\W|^)qualifying(?=\W|$)/(?<=\W|^)qualifying(?=\W|$)/(?<=\W|^)qualifying,notebook(?=\W|$)/(?<=\W|^)quaifying(?=\W|$)/(?<=\W|^)qualy(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)qualifying(?=\W|$)|(?<=\W|^)qualifying,notebook(?=\W|$)|(?<=\W|^)quaifying(?=\W|$)|(?<=\W|^)qualy(?=\W|$))"
         Name = "52 - Qualifying"
     },
     @{
@@ -358,15 +358,15 @@ $eventTypes = @(
         Name = "44 - Ted's Sprint Notebook"
     },
     @{
-        Pattern = "(?<=\W|^)pre[\W-]+race\W+show(?=\W|$)/(?<=\W|^)grand\W+prix\W+sunday(?=\W|$)/(?<=\W|^)pre[\W-]+race\W+buildup(?=\W|$)/(?<=\W|^)race\W+build\W+up(?=\W|$)/(?<=\W|^)on\W+the\W+grid(?=\W|$)/(?<=\W|^)pre[\W-]+race(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)pre[\W-]+race\W+show(?=\W|$)|(?<=\W|^)grand\W+prix\W+sunday(?=\W|$)|(?<=\W|^)pre[\W-]+race\W+buildup(?=\W|$)|(?<=\W|^)race\W+build\W+up(?=\W|$)|(?<=\W|^)on\W+the\W+grid(?=\W|$)|(?<=\W|^)pre[\W-]+race(?=\W|$))"
         Name = "61 - Pre-Race Buildup"
     },
     @{
-        Pattern = "(?<=\W|^)race.ssession(?=\W|$)"
+        Pattern = "(?<=\W|^)race\W+session(?=\W|$)"
         Name = "62 - Grand Prix"
     },
     @{
-        Pattern = "(?<=\W|^)chequered.flag(?=\W|$)/(?<=\W|^)post[\W-]+race\W+show(?=\W|$)/(?<=\W|^)post[\W-]+race\W+analysis(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)chequered.flag(?=\W|$)|(?<=\W|^)post[\W-]+race\W+show(?=\W|$)|(?<=\W|^)post[\W-]+race\W+analysis(?=\W|$))"
         Name = "63 - Post-Race Analysis"
     },
     @{
@@ -376,11 +376,11 @@ $eventTypes = @(
     # Note: These are at the end because they might match other parts of the filename wrongly
     #       We need to give all other patterns a chance first
     @{
-        Pattern = "(?<=\W|^)sprint(?=\W|$)"
+        Pattern = "(?<=\W|^)(?<!pre\W)(?<!post\W)sprint(?=\W|$)"
         Name = "42 - Sprint Race"
     },
     @{
-        Pattern = "(?<=\W|^)race(?=\W|$)/(?<=\W|^)grand\W+prix(?=\W|$)"
+        Pattern = "(?:(?<=\W|^)(?<!pre\W)(?<!post\W)race(?=\W|$)|(?<=\W|^)grand\W+prix(?=\W|$))"
         Name = "62 - Grand Prix"
     }
 
@@ -1044,32 +1044,30 @@ Function Get-EventInfoF1
     {
         foreach ($circuit in $formula1Circuits)
         {
-            # Check our local match patterns
-            foreach ($pattern in @($circuit.Pattern -Split "/" ))
-            {
-                $pattern = $pattern -replace ' ', '\.'
-                if ($srcName -imatch $pattern)
-                {
-                    $circuitName = $circuit.CircuitName
-                    $circuitRef = $circuit.circuitRef
+                    # Check our local match patterns
+                    $pattern = $circuit.Pattern
+                    $pattern = $pattern -replace ' ', '[\\s\\._-]+'
+                    if ($srcName -imatch $pattern)
+                    {
+                        $circuitName = $circuit.CircuitName
+                        $circuitRef = $circuit.circuitRef
 
-                    # Get the circuit ID
-                    $circuitObj = $script:F1Circuits | Where-Object { $_.circuitId -eq $circuitRef } | Select-Object -First 1
-                    if ($null -ne $circuitObj) {
-                        $circuitId = $circuitObj.circuitId
-                    } else {
-                        $circuitId = $null
+                        # Get the circuit ID
+                        $circuitObj = $script:F1Circuits | Where-Object { $_.circuitId -eq $circuitRef } | Select-Object -First 1
+                        if ($null -ne $circuitObj) {
+                            $circuitId = $circuitObj.circuitId
+                        } else {
+                            $circuitId = $null
+                        }
+                        break doneCircuit
                     }
-                    break doneCircuit
-                }
-            }
         }
         # Check the downloaded file match patterns
         foreach ($circuit in $script:F1Circuits)
         {
             foreach ($pattern in @($circuit.circuitName, $circuit.Location.locality, $circuit.Location.country))
             {
-                $pattern = $pattern -replace ' ', '\.'
+                $pattern = $pattern -replace ' ', '[\\s\\._-]+'
                 if ($srcName -imatch $pattern)
                 {
                     $circuitName = $circuit.circuitName
@@ -1104,22 +1102,22 @@ Function Get-EventInfoF1
         {
             foreach ($eventType in $eventTypes)
             {
-                foreach ($pattern in @($eventType.Pattern -Split "/" ))
+                $pattern = $eventType.Pattern
+                $pattern = $pattern -replace ' ', '[\\s\\._-]+'
+                $m = [regex]::Match($srcName, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+                if ($m.Success)
                 {
-                    $pattern = $pattern -replace ' ', '[\s\.]+'
-                    $m = [regex]::Match($srcName, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-                    if ($m.Success)
-                    {
-                        if ($eventType.Name -is [scriptblock]) {
-                            $eventName = & $eventType.Name $m
-                        } else {
-                            $eventName = $eventType.Name
-                        }
-                        break doneEvent
+                    if ($eventType.Name -is [scriptblock]) {
+                        $eventName = & $eventType.Name $m
+                    } else {
+                        $eventName = $eventType.Name
                     }
+                    break doneEvent
                 }
             }
         }
+
+        
 
     }
     else
