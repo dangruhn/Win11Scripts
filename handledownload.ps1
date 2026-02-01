@@ -120,6 +120,14 @@ function LogOutput {
     }
 }
 
+# Import module with shared utilities
+try {
+    $modulePath = Join-Path $PSScriptRoot 'src\handledownload.psm1'
+    if (Test-Path $modulePath) { Import-Module -Name $modulePath -Force -Scope Local }
+} catch {
+    Write-Verbose "Could not import handledownload module: $_"
+}
+
 # Script wide variables
 LogOutput "TorrentName: $TorrentName" `
             "Category: $Category" `
@@ -556,85 +564,23 @@ Function Import-F1Information
 #     New-TemporaryFolder
 #     This command creates a new temporary folder in the system's temp directory.
 #********************************************************************************
-Function New-TemporaryFolder
-{
-    # Make a new folder based upon a TempFileName
-    $TemporaryFolder="$($Env:temp)\tmp$([convert]::tostring((get-random 65535),16).padleft(4,'0')).tmp"
-    $null = New-Item -ItemType Directory -Path $TemporaryFolder
-   return $TemporaryFolder
-}
+# New-TemporaryFolder moved to src\handledownload.psm1
 
 
 #********************************************************************************
 # Get successively longer leaves in the given path
 #********************************************************************************
-Function Get-SuccessivePathLeaves
-{
-    $pathname = $args[0]
-
-    $parent = Split-Path -Path "$pathname" -Parent
-    $leaf = Split-Path -Path "$pathname" -Leaf
-    $result = @($leaf)
-    while ($parent.Length -gt 0)
-    {
-        $parentLeaf = Split-Path -Path $parent -Leaf
-        $parent = Split-Path -Path $parent -Parent
-        $leaf = $parentLeaf, $leaf -join '\'
-        $result += $leaf
-    }
-    return $result
-
-}
+# Get-SuccessivePathLeaves moved to src\handledownload.psm1
 #********************************************************************************
 # Convert a byte count into a human-readable string with appropriate units.
 #********************************************************************************
-function Format-ByteSize {
-    param (
-        [Parameter(Mandatory = $true)] [double] $Bytes,
-        [Int16]                                 $DecimalPlaces = 2
-    )
-
-    $units = @(
-        @{ Label = "TB"; Factor = 1TB },
-        @{ Label = "GB"; Factor = 1GB },
-        @{ Label = "MB"; Factor = 1MB },
-        @{ Label = "KB"; Factor = 1KB },
-        @{ Label = "bytes"; Factor = 1 }
-    )
-
-    foreach ($unit in $units) {
-        if ($Bytes -ge $unit.Factor) {
-            $rounded = [math]::Round($Bytes / $unit.Factor, $DecimalPlaces)
-            $formatted = "{0:F$DecimalPlaces}" -f $rounded
-            return "$formatted $($unit.Label)"
-        }
-    }
-
-    return "$Bytes bytes"
-}
+# Format-ByteSize moved to src\handledownload.psm1
 
 #********************************************************************************
 # Convert seconds to HH:MM:SS format
 # Only shows hours if there are hours, only shows minutes if there are minutes
 #********************************************************************************
-function Convert-SecondsToHHMMSS {
-    param (
-        [Parameter(Mandatory = $true)]
-        [int]$TotalSeconds
-    )
-
-    $hours   = [int][math]::Floor($TotalSeconds / 3600)
-    $minutes = [int][math]::Floor(($TotalSeconds % 3600) / 60)
-    $seconds = $TotalSeconds % 60
-
-    if ($hours -gt 0) {
-        return "{0:D}:{1:D2}:{2:D2}" -f $hours, $minutes, $seconds
-    } elseif ($minutes -gt 0) {
-        return "{0:D}:{1:D2}" -f $minutes, $seconds
-    } else {
-        return "{0:D} secs" -f $seconds
-    }
-}
+# Convert-SecondsToHHMMSS moved to src\handledownload.psm1
 #********************************************************************************
 # Copy a file with a progress bar
 #********************************************************************************
