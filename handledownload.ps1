@@ -443,108 +443,11 @@ $eventTypes = @(
 #     Date: [Date]
 #     This function requires internet access to download data from the Ergast API.
 #****************************************************************************************************
-Function Import-F1Information
-{
-    $limit = (Get-Date).AddDays(-7)
-    $lastWriteTime = $limit
-
-    # If we already have downloaded the F1 circuits file
-    $dstPathname = "$F1DBDir\${F1CircuitsFilestem}0.json"
-    if  (Test-Path $dstPathname)
-    {
-        # Get its file time
-        $lastWriteTime = (Get-Item $dstPathname).LastWriteTime
-    }
-    # If the F1 database files are a week or more old
-    $dnlChunkSize = 100
-    if ($lastWriteTime -le $limit)
-    {
-        # Download a new copy
-        LogOutput "Downloading a new copy of F1 information"
-
-        # While there are more circuits to download
-        $dnlOffset = 0
-        do {
-            $statusCode = 200
-            $dstPathname = "$F1DBDir\$F1CircuitsFilestem$dnlOffset.json"
-            try
-            {
-                Invoke-WebRequest -UseBasicParsing -Uri "https://api.jolpi.ca//ergast/f1/circuits/?limit=100&offset=$dnlOffset" -OutFile "$dstPathname"
-
-                # This will only execute if the Invoke-WebRequest is successful.
-                $jsonInfo = Get-Content $dstPathname | ConvertFrom-Json
-                $dnlOffset += $dnlChunkSize
-            }
-            catch
-            {
-                $statusCode = $null
-                if ($_.Exception -and $_.Exception.Response) {
-                    try { $statusCode = $_.Exception.Response.StatusCode.value__ } catch { $statusCode = $null }
-                }
-                if ($statusCode -eq 429)
-                {
-                    LogOutput "Error: Too many requests: $statusCode"
-                    Start-Sleep -Seconds 1
-                }
-                else {
-                    LogOutput "Error downloading circuits: $($_.Exception.Message)"
-                }
-            }
-        } while (([int]$jsonInfo.MRData.offset + $dnlChunkSize) -lt [int]$jsonInfo.MRData.total)
-
-        # While there are more races to download
-        $dnlOffset = 0
-        do {
-            $statusCode = 200
-            $dstPathname = "$F1DBDir\$F1RacesFilestem$dnlOffset.json"
-            try
-            {
-                Invoke-WebRequest -Uri "https://api.jolpi.ca///ergast/f1/races/?limit=100&offset=$dnlOffset" -OutFile $dstPathname
-
-                # This will only execute if the Invoke-WebRequest is successful.
-                $jsonInfo = Get-Content $dstPathname | ConvertFrom-Json
-                $dnlOffset += $dnlChunkSize
-            }
-            catch
-            {
-                $statusCode = $null
-                if ($_.Exception -and $_.Exception.Response) {
-                    try { $statusCode = $_.Exception.Response.StatusCode.value__ } catch { $statusCode = $null }
-                }
-                if ($statusCode -eq 429)
-                {
-                    LogOutput "Error: Too many requests: $statusCode"
-                    Start-Sleep -Seconds 1
-                }
-                else {
-                    LogOutput "Error downloading races: $($_.Exception.Message)"
-                }
-            }
-        } while (([int]$jsonInfo.MRData.offset + $dnlChunkSize) -lt [int]$jsonInfo.MRData.total)
-    }
-    # Import circuit information
-    $dnlOffset = 0
-    $script:F1Circuits = @()
-    $srcPathname = "$F1DBDir\$F1CircuitsFilestem$dnlOffset.json"
-    do {
-        $jsonInfo = Get-Content $srcPathname | ConvertFrom-Json
-        $script:F1Circuits += $jsonInfo.MRData.CircuitTable.Circuits
-        $dnlOffset += $dnlChunkSize
-        $srcPathname = "$F1DBDir\$F1CircuitsFilestem$dnlOffset.json"
-
-        # While there are more circuits to load
-    } while (Test-Path -Path $srcPathname)
-
-    # Import race information
-    $dnlOffset = 0
-    $script:F1Races = @()
-    $srcPathname = "$F1DBDir\$F1RacesFilestem$dnlOffset.json"
-    do {
-        $jsonInfo = Get-Content $srcPathname | ConvertFrom-Json
-        $script:F1Races += $jsonInfo.MRData.RaceTable.Races
-        $dnlOffset += $dnlChunkSize
-        $srcPathname = "$F1DBDir\$F1RacesFilestem$dnlOffset.json"
-    } while (Test-Path -Path $srcPathname)
+function Import-F1Information {
+    $f1ModulePath = Join-Path $PSScriptRoot 'src\f1.psm1'
+    try { if (Test-Path $f1ModulePath) { Import-Module -Name $f1ModulePath -Force -Scope Local } } catch { Write-Verbose "Could not import f1 module: $_" }
+    $result = Import-F1InformationModule -F1DBDir $F1DBDir -F1CircuitsFilestem $F1CircuitsFilestem -F1RacesFilestem $F1RacesFilestem
+    if ($result) { $script:F1Circuits = $result.Circuits; $script:F1Races = $result.Races }
 }
 
 
@@ -619,133 +522,16 @@ function Extract-RarWith7Zip {
 # Copy and F1 file to the proper location based on 
 #********************************************************************************
 
-Function CopyF1File
-{
-    $SrcPath = $args[0]
-    $EventInfo = $args[1]
-    $Suffix = $args[2]
-
-    $DestDir = "$($EventInfo.RaceDate) Formula1 $($EventInfo.CircuitName)"
-    $baseName = ($DestDir, $EventInfo.EventName, $EventInfo.ResolutionBits -join " - ")
-    if (![string]::IsNullOrEmpty($Suffix)) {
-        $dstName = "$baseName.$Suffix"
-    } else {
-        $dstName = $baseName
-    }
-
-
-    $DestDirPath = "$F1DestRoot", $DestDir -join "\"
-    $DestPath = "$DestDirPath", "$dstName" -join "\"
-
-    # Get the video name for the final completion dialog box
-    $global:VideoName = Split-Path $DestPath -Leaf
-
-    # Make sure the destination directory exists
-    if (!(Test-Path -Path $DestDirPath -PathType Container))
-    {
-        LogOutput "mkdir $DestDirPath"
-        New-Item -Path "$DestDirPath" -ItemType Directory -Force  | Out-Null
-    }
-    # If the destination file doesn't exist or isn't the correct size
-    if ((!(Test-Path -Path $DestPath)) -or ((Get-Item -Path $SrcPath).Length -ne (Get-Item -Path $DestPath).Length))
-    {
-        Copy-WithProgress -SourcePath $SrcPath -DestinationPath $DestPath
-        #Start-BitsTransfer -Source  -Destination $DestPath -Priority High -DisplayName $displayName -Description "$SrcPath to $DestPath"
-
-        LogOutput "Remove read-only from $DestPath"
-        attrib -r "$DestPath"
-    }
+function CopyF1File {
+    [void](CopyF1FileModule -SrcPath $args[0] -EventInfo $args[1] -Suffix $args[2] -F1DestRoot $F1DestRoot)
 }
 
 #********************************************************************************
 # Process a file
 #********************************************************************************
 
-Function Invoke-F1FileProcessing
-{
-    $srcFolder = $args[0]
-    $SrcPathname = $args[1]
-
-    # If the file is a directory
-    if (Test-Path $SrcPathname -PathType Container)
-    {
-        # Get the relevant files in the directory
-        $fileList = Get-ChildItem -Path "$SrcPathname\*" -Name -Include *.mkv,*.rar,*.nfo,*.mp4
-
-        # Process each subfile
-        foreach ($subfile in $fileList)
-        {
-            
-            $null = Invoke-F1FileProcessing $SrcPathname "$SrcPathname\$subfile"
-            
-        }
-    }
-    else
-    {
-        switch -Wildcard ($SrcPathname)
-        {
-            "*.mkv" {
-                $eventInfo = Get-EventInfoF1 "$srcFolder" "$SrcPathname"
-
-                # If we cannot determine this to be a valid race
-                if ($eventInfo.RaceDate -eq "xxxx-xx-xx")
-                {
-                    LogOutput "Error: Unrecognized input: $srcFolder $SrcPathname"
-                }
-                else
-                {
-                    CopyF1File "$SrcPathname" $eventInfo "mkv"
-                }
-            }
-            "*.rar" {
-                $TempFolder = New-TemporaryFolder
-
-                LogOutput "Extract $SrcPathname to $TempFolder"
-
-                $winRarPath = "C:\Program Files\WinRAR\Rar.exe"
-                if (-not (Validate-Executable -Path $winRarPath -Name 'WinRAR Rar.exe')) {
-                    LogOutput "Cannot extract RAR: WinRAR not found. Skipping $SrcPathname"
-                } else {
-                    & "$winRarPath" -y -idq e "$SrcPathname" $TempFolder
-                }
-
-                # Process the expanded files in the temp folder
-                
-                $null = Invoke-F1FileProcessing $srcFolder "$TempFolder"
-                
-
-                # Remove the temp folder and expanded files
-                Remove-Item -path "$TempFolder" -recurse -force
-
-            }
-            "*.nfo" {
-                $eventInfo = Get-EventInfoF1 "$srcFolder" "$SrcPathname"
-
-                # If we cannot determine this to be a valid race
-                if ($eventInfo.RaceDate -eq "xxxx-xx-xx")
-                {
-                    LogOutput "Error: Unrecognized input: $srcFolder $SrcPathname"
-                }
-                else
-                {
-                    CopyF1File "$SrcPathname" $eventInfo "nfo"
-                }
-            }
-            "*.mp4" {
-                $eventInfo = Get-EventInfoF1 "$srcFolder" "$SrcPathname"
-
-                # If we cannot determine this to be a valid race
-                if ($eventInfo.RaceDate -eq "xxxx-xx-xx")
-                {
-                    LogOutput "Error: Unrecognized input: $srcFolder $SrcPathname"
-                }
-                else
-                {
-                    CopyF1File "$SrcPathname" $eventInfo "mp4"
-                }
-            }
-        }
-    }
+function Invoke-F1FileProcessing {
+    [void](Invoke-F1FileProcessingModule -SrcFolder $args[0] -SrcPathname $args[1] -F1DestRoot $F1DestRoot -Formula1Circuits $formula1Circuits -F1Circuits $script:F1Circuits -F1Races $script:F1Races -EventTypes $eventTypes)
 }
 
 
@@ -942,18 +728,7 @@ Function Get-EventInfoF1
 # Determine if the given string is an F1 race event designation
 #******************************************************************************
 
-Function IsF1()
-{
-    $testStr = $args[0];
-    return(
-            ($testStr -imatch "\.formula1\."  ) -or
-            ($testStr -imatch "\.formula\.1\.") -or
-            ($testStr -imatch "^formula1\."   ) -or
-            ($testStr -imatch "^formula.1\."   ) -or
-            ($testStr -imatch "\.f1\."        ) -or
-            ($testStr -imatch "^f1\."         )
-          );
-}
+function IsF1 { param($s) return (IsF1Module -TestStr $s) }
 function Invoke-MovieTvFileProcessing {
     [CmdletBinding()]
     param (
