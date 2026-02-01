@@ -1023,26 +1023,21 @@ elseif ($False)
 else
 {
 
-    Add-Type -TypeDefinition @"
-using System.Threading;
-public class MutexLocker {
-    public static Mutex GetMutex(string name) {
-        return new Mutex(false, name);
+    # Use mutex helper module
+    try {
+        $mutexModulePath = Join-Path $PSScriptRoot 'src\mutex.psm1'
+        if (Test-Path $mutexModulePath) { Import-Module -Name $mutexModulePath -Force -Scope Local }
+    } catch {
+        Write-Verbose "Could not import mutex module: $_"
     }
-}
-"@
-    $mutexName = "Global\PlexDownloadQueue"
-    $mutex = [MutexLocker]::GetMutex($mutexName)
 
+    $mutexName = "Global\PlexDownloadQueue"
     LogOutput "Waiting for mutex: $mutexName"
+    $mutex = Acquire-NamedMutex -Name $mutexName
 
     try
     {
-        # Wait until the mutex is acquired
-        $mutex.WaitOne()
-
         LogOutput "Mutex acquired. Processing download..."
-
         # If this is a Formula 1 file
         if (($Tags -eq "F1") -or ($Category -eq "F1") -or (IsF1 $SavePath) -or (IsF1 $ContentPath))
         {
@@ -1078,7 +1073,7 @@ public class MutexLocker {
     }
     finally
     {
-        $mutex.ReleaseMutex()
+        Release-NamedMutex -Mutex $mutex
         LogOutput "Mutex released."
     }
     Add-Type -AssemblyName System.Windows.Forms
