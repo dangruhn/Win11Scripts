@@ -25,15 +25,15 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [String]$TorrentName,   # %N: Torrent name
-    [String]$Category,	    # %L: Category
-    [String]$Tags,	        # %G: Tags (separated by comma)
-    [String]$ContentPath,   # %F: Content path (same as root path for multi-file torrent)
-    [String]$RootPath,	    # %R: Root path (first torrent subdirectory path)
-    [String]$SavePath,	    # %D: Save path
-    [int]$NumberOfFiles,    # %C: Number of files
-    [long]$TorrentSize,	    # %Z: Torrent size (bytes)
-    [String]$TorrentId	    # %K: Torrent ID (either sha-1 or truncated sha-256 info)
+    [String]$TorrentName,        # %N: Torrent name
+    [String]$Category = "TV",    # %L: Category (default to TV)
+    [String]$Tags,               # %G: Tags (separated by comma)
+    [String]$ContentPath,        # %F: Content path (same as root path for multi-file torrent)
+    [String]$RootPath,           # %R: Root path (first torrent subdirectory path)
+    [String]$SavePath,           # %D: Save path
+    [int]$NumberOfFiles,         # %C: Number of files
+    [long]$TorrentSize,          # %Z: Torrent size (bytes)
+    [String]$TorrentId           # %K: Torrent ID (either sha-1 or truncated sha-256 info)
 )
 
 
@@ -46,6 +46,25 @@ Add-Type -AssemblyName PresentationFramework
 $qBittorrentLogsDir = "$env:USERPROFILE\logs"
 $global:logFile = "$qBittorrentLogsDir\handledownload.log"
 
+# Ensure log directory exists
+if (-not (Test-Path -Path $qBittorrentLogsDir)) {
+    try { New-Item -Path $qBittorrentLogsDir -ItemType Directory -Force | Out-Null } catch { Write-Warning "Failed to create log directory: $qBittorrentLogsDir - $_" }
+}
+
+# Validate that an external executable exists and log a clear message if not
+function Validate-Executable {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$false)][string]$Name = $null
+        )
+
+    if (-not $Name) { $Name = Split-Path -Path $Path -Leaf }
+    if (-not (Test-Path -Path $Path)) {
+        LogOutput "Missing executable: $Name at path: $Path"
+        return $false
+    }
+    return $true
+}
 
 #******************************************************************************
 # Log the input parameters to the log file with a timestamp
@@ -450,11 +469,17 @@ Function Import-F1Information
             }
             catch
             {
-                $statusCode = $_.Exception.Response.StatusCode.value__
+                $statusCode = $null
+                if ($_.Exception -and $_.Exception.Response) {
+                    try { $statusCode = $_.Exception.Response.StatusCode.value__ } catch { $statusCode = $null }
+                }
                 if ($statusCode -eq 429)
                 {
-                    LogOutput "Error: Too many requests: $response.StatusCode"
+                    LogOutput "Error: Too many requests: $statusCode"
                     Start-Sleep -Seconds 1
+                }
+                else {
+                    LogOutput "Error downloading circuits: $($_.Exception.Message)"
                 }
             }
         } while (([int]$jsonInfo.MRData.offset + $dnlChunkSize) -lt [int]$jsonInfo.MRData.total)
@@ -474,11 +499,17 @@ Function Import-F1Information
             }
             catch
             {
-                $statusCode = $_.Exception.Response.StatusCode.value__
+                $statusCode = $null
+                if ($_.Exception -and $_.Exception.Response) {
+                    try { $statusCode = $_.Exception.Response.StatusCode.value__ } catch { $statusCode = $null }
+                }
                 if ($statusCode -eq 429)
                 {
-                    LogOutput "Error: Too many requests: $response.StatusCode"
+                    LogOutput "Error: Too many requests: $statusCode"
                     Start-Sleep -Seconds 1
+                }
+                else {
+                    LogOutput "Error downloading races: $($_.Exception.Message)"
                 }
             }
         } while (([int]$jsonInfo.MRData.offset + $dnlChunkSize) -lt [int]$jsonInfo.MRData.total)
@@ -697,7 +728,7 @@ function Copy-WithProgress {
 
     $buffer = New-Object byte[] (2MB)
     $totalBytes = $sourceStream.Length
-    $progressBar.Maximum = $totalBytes
+    [void]($progressBar.Maximum = $totalBytes)
     $bytesCopied = 0
     $startTime = Get-Date
 
@@ -717,7 +748,7 @@ function Copy-WithProgress {
 
         $destStream.Write($buffer, 0, $read)
         $bytesCopied += $read
-        $progressBar.Value = $bytesCopied
+        [void]($progressBar.Value = $bytesCopied)
 
         # Percent complete
         $percent = [math]::Round(($bytesCopied / $totalBytes) * 100, 0)
@@ -804,7 +835,8 @@ function Extract-RarWith7Zip {
 
     if (-not $sevenZipPath)
     {
-        throw "7z.exe not found in Program Files or Program Files (x86). Please verify 7-Zip is installed."
+        LogOutput "7z.exe not found in Program Files or Program Files (x86). Please verify 7-Zip is installed."
+        return 1
     }
 
     # Ensure output directory exists
@@ -814,12 +846,10 @@ function Extract-RarWith7Zip {
     }
 
     # Run 7-Zip extraction
-    $errorOut = & $sevenZipPath x $RarFile "-o$OutputDir" -y 1> $null 2>&1
-    $exitCode = $LASTEXITCODE
-    
-    # Add any error output to the log
-    LogOutput "$errorOut"
+    $proc = Start-Process -FilePath $sevenZipPath -ArgumentList @('x', $RarFile, "-o$OutputDir", '-y') -NoNewWindow -Wait -PassThru
+    $exitCode = $proc.ExitCode
 
+    if ($exitCode -ne 0) { LogOutput "7z exit code: $exitCode for file $RarFile" }
     return $exitCode
 }
 
@@ -884,7 +914,9 @@ Function Invoke-F1FileProcessing
         # Process each subfile
         foreach ($subfile in $fileList)
         {
-            Invoke-F1FileProcessing $SrcPathname "$SrcPathname\$subfile"
+            
+            $null = Invoke-F1FileProcessing $SrcPathname "$SrcPathname\$subfile"
+            
         }
     }
     else
@@ -909,11 +941,17 @@ Function Invoke-F1FileProcessing
 
                 LogOutput "Extract $SrcPathname to $TempFolder"
 
-
-                & "C:\Program Files\WinRAR\Rar.exe" -y -idq e "$SrcPathname" $TempFolder
+                $winRarPath = "C:\Program Files\WinRAR\Rar.exe"
+                if (-not (Validate-Executable -Path $winRarPath -Name 'WinRAR Rar.exe')) {
+                    LogOutput "Cannot extract RAR: WinRAR not found. Skipping $SrcPathname"
+                } else {
+                    & "$winRarPath" -y -idq e "$SrcPathname" $TempFolder
+                }
 
                 # Process the expanded files in the temp folder
-                Invoke-F1FileProcessing $srcFolder "$TempFolder"
+                
+                $null = Invoke-F1FileProcessing $srcFolder "$TempFolder"
+                
 
                 # Remove the temp folder and expanded files
                 Remove-Item -path "$TempFolder" -recurse -force
@@ -1165,6 +1203,11 @@ function Invoke-MovieTvFileProcessing {
 
     $ExePath = "C:\Program Files\FileBot\filebot.exe"
 
+    if (-not (Validate-Executable -Path $ExePath -Name 'FileBot')) {
+        LogOutput "FileBot not found at $ExePath. Cannot process TV/Movie files."
+        return
+    }
+
     # Format strings
     $SeriesFormat = @"
 TV Shows/{n}/{episode.special ? 'Specials' : 'Season '+s.pad(2)}/{n} - {episode.special ? 'S00E'+special.pad(2) : s00e00} - {t} - {vf} - {bitdepth}b
@@ -1206,7 +1249,9 @@ MoviesTmp/{n} ({y})/{n} ({y}) - {vf} - {bitdepth}b
             $RarFile = "$ContentPath\$($matches['archive'])"
             $OutputDir = "$($matches['dest'])"
             LogOutput "Extracting archive: $RarFile to $OutputDir"
-            Extract-RarWith7Zip -RarFile $RarFile -OutputDir $OutputDir >$null 2>&1
+            
+            $null = Extract-RarWith7Zip -RarFile $RarFile -OutputDir $OutputDir >$null 2>&1
+            
         }
     }
 
@@ -1313,7 +1358,9 @@ elseif ($False)
    Import-F1Information
    $SavePath = "E:\Downloads\TOR\Done\10.F1.2025.R18.Singapore.Grand.Prix.Race.Sky.Sports.F1.UHD.2160p.mkv"
    $ContentPath = $SavePath
-   Invoke-F1FileProcessing  $SavePath $ContentPath
+    
+    $null = Invoke-F1FileProcessing  $SavePath $ContentPath
+    
    exit 0
 }
 else
@@ -1345,7 +1392,9 @@ public class MutexLocker {
 
             Import-F1Information
             LogOutput "Processing F1 files in $SavePath with content $ContentPath"
-            Invoke-F1FileProcessing $SavePath $ContentPath
+            
+            $null = Invoke-F1FileProcessing $SavePath $ContentPath
+            
         }
         else
         {
@@ -1353,10 +1402,18 @@ public class MutexLocker {
             LogOutput "${Category}:        $TorrentName"
             LogOutput "******************************************************************************"
 
-            Invoke-MovieTvFileProcessing `
+            # Ensure Category is valid for Movie/TV processing
+            if ($Category -notin @('TV','Movie','F1')) {
+                LogOutput "Unknown Category '$Category' - defaulting to 'TV'"
+                $Category = 'TV'
+            }
+
+            
+            $null = Invoke-MovieTvFileProcessing `
                 -TorrentName "$TorrentName" `
                 -Category "$Category" `
                 -ContentPath "$ContentPath"
+            
 
             # Optional: Trigger Plex library refresh via API or webhook
 
@@ -1369,14 +1426,37 @@ public class MutexLocker {
     }
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
+    
 
     # Layout: use FlowLayoutPanel so controls are positioned automatically
     $hPadding = 10
     $vPadding = 10
 
     $form = New-Object Windows.Forms.Form
-    $normalized = (Resolve-Path $ContentPath).Path
-    $finalComponent = Split-Path $normalized -Leaf
+    # Validate ContentPath before resolving; fallback to SavePath or current dir
+    if (-not $ContentPath -or $ContentPath -eq "") {
+        if ($SavePath -and ($SavePath -ne "")) {
+            $ContentPath = $SavePath
+            LogOutput "ContentPath empty; falling back to SavePath: $SavePath"
+        } else {
+            $ContentPath = (Get-Location).Path
+            LogOutput "ContentPath and SavePath empty; using current directory: $ContentPath"
+        }
+    }
+
+    try {
+        
+        $resolved = Resolve-Path -Path $ContentPath -ErrorAction Stop
+        $normalized = $resolved.Path
+        
+    } catch {
+        LogOutput "Resolve-Path failed for '$ContentPath' - using raw path"
+        $normalized = $ContentPath
+        
+    }
+
+    if ($normalized) { $finalComponent = Split-Path $normalized -Leaf } else { $finalComponent = '' }
+    
     $form.Text = "Download Complete, Exiting"
     $form.StartPosition = 'CenterScreen'
     $form.TopMost = $true
@@ -1391,8 +1471,8 @@ public class MutexLocker {
     $table.AutoSize = $true
     $table.AutoSizeMode = 'GrowAndShrink'
     $table.Padding = New-Object System.Windows.Forms.Padding($hPadding, $vPadding, $hPadding, $vPadding)
-    $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
-    $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)))
+    [void]($table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100))))
+    [void]($table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize))))
 
     # Left content panel (vertical)
     $contentPanel = New-Object System.Windows.Forms.FlowLayoutPanel
@@ -1404,24 +1484,24 @@ public class MutexLocker {
 
     # Title label
     $titleLabel = New-Object Windows.Forms.Label
-    $titleLabel.Text = ("$($global:VideoName)" -ne "") ? "$global:VideoName" : "$finalComponent"
+    if ($global:VideoName -ne "") { $titleLabel.Text = $global:VideoName } else { $titleLabel.Text = $finalComponent }
     $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
     $titleLabel.AutoSize = $true
-    $contentPanel.Controls.Add($titleLabel)
+    [void]($contentPanel.Controls.Add($titleLabel))
 
     # Progress bar
     $progressBar = New-Object Windows.Forms.ProgressBar
     $progressBar.Height = 20
     $progressBar.Width = 600
-    $progressBar.Value = 0
-    $contentPanel.Controls.Add($progressBar)
+    [void]($progressBar.Value = 0)
+    [void]($contentPanel.Controls.Add($progressBar))
 
     # Countdown label (show whole seconds)
     $countdownLabel = New-Object Windows.Forms.Label
     $countdownLabel.Text = "Time Remaining: $([math]::Ceiling($state.Counter / 10))s"
     $countdownLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
     $countdownLabel.AutoSize = $true
-    $contentPanel.Controls.Add($countdownLabel)
+    [void]($contentPanel.Controls.Add($countdownLabel))
 
     # Right button panel (vertical) placed in the second column
     $buttonPanel = New-Object System.Windows.Forms.FlowLayoutPanel
@@ -1435,18 +1515,18 @@ public class MutexLocker {
     $exitButton.Text = "Exit"
     $exitButton.AutoSize = $true
     $exitButton.Add_Click({ $form.Close() })
-    $buttonPanel.Controls.Add($exitButton)
+    [void]($buttonPanel.Controls.Add($exitButton))
 
     $pauseButton = New-Object Windows.Forms.Button
     $pauseButton.Text = "Pause"
     $pauseButton.AutoSize = $true
-    $buttonPanel.Controls.Add($pauseButton)
+    [void]($buttonPanel.Controls.Add($pauseButton))
 
     # Add panels to table
-    $table.Controls.Add($contentPanel, 0, 0)
-    $table.Controls.Add($buttonPanel, 1, 0)
+    [void]($table.Controls.Add($contentPanel, 0, 0))
+    [void]($table.Controls.Add($buttonPanel, 1, 0))
 
-    $form.Controls.Add($table)
+    [void]($form.Controls.Add($table))
 
     # Set up global state for timer and add click and tick handlers
     $global:timerCancelled = $false
@@ -1463,8 +1543,8 @@ public class MutexLocker {
     # Timer logic
     $totalTicks = 100  # 10 seconds at 100ms intervals
     $state = [pscustomobject]@{ Counter = $totalTicks }
-    $progressBar.Maximum = $totalTicks
-    $progressBar.Value = $totalTicks
+    [void]($progressBar.Maximum = $totalTicks)
+    [void]($progressBar.Value = $totalTicks)
 
     $timer = New-Object Windows.Forms.Timer
     $timer.Interval = 100  # 100ms
@@ -1477,7 +1557,7 @@ public class MutexLocker {
         if ($global:timerRunning)
         {
             $state.Counter--
-            $progressBar.Value = [Math]::Max($state.Counter, $progressBar.Minimum)
+            [void]($progressBar.Value = [Math]::Max($state.Counter, $progressBar.Minimum))
             $countdownLabel.Text = "Time Remaining: $([math]::Ceiling($state.Counter / 10))s"
             if ($state.Counter -le 0)
             {
@@ -1515,5 +1595,8 @@ public class MutexLocker {
         })
 
     # Run the form with message loop
-    [Windows.Forms.Application]::Run($form)
+    
+    $null = [Windows.Forms.Application]::Run($form)
+    
 }
+    exit 0
