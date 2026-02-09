@@ -1,0 +1,30 @@
+# branch.oid 1ee18a51510c92a91c5082ead44c07a1de685daa
+# branch.head refactor/handledownload-base
+# branch.upstream origin/refactor/handledownload-base
+# branch.ab +0 -0
+? workspace-state.txt
+branch: refactor/handledownload-base
+commit: 1ee18a51510c92a91c5082ead44c07a1de685daa
+
+After you restart VS Code / shell
+
+# Reopen the same workspace folder.
+# Verify PATH & tools:
+python --version   # or py --version
+gh --version
+
+# Restore repo state and update:
+
+git fetch origin
+git checkout refactor/handledownload-base   # or the branch you recorded
+git pull --ff-only origin refactor/handledownload-base
+git status --porcelain=2 --branch
+
+# Re-run tests / tasks you were using:
+Import-Module Pester; Invoke-Pester tests\Unit\mutex.Tests.ps1
+
+# When you re-open the chat, paste these three items so I can pick up immediately:
+# branch name and HEAD commit hash (from above)
+# current file you had open (for me it was c:\Users\Dan.Gruhn\bin\tests\Unit\mutex.Tests.ps1)
+# brief note of what you want next (e.g., “continue extracting helpers into modules and add CI”)
+# Optionally paste the contents of workspace-state.txt or git status output.
